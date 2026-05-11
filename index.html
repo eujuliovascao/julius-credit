@@ -335,6 +335,24 @@ function fazerLogout(){
   renderLoginScreen();
 }
 
+
+async function garantirAdmin(){
+  try{
+    var chk=await supa.from('usuarios').select('id').eq('email','juvascaojr@gmail.com');
+    if(chk.data&&chk.data.length===0){
+      await supa.from('usuarios').insert({
+        id:genId(),
+        email:'juvascaojr@gmail.com',
+        nome:'Julius',
+        senha:hashSenha('julius2024'),
+        admin:true,
+        trial_ate:'2099-12-31',
+        ativo:true
+      });
+    }
+  }catch(e){console.log('garantirAdmin:',e);}
+}
+
 async function iniciarApp(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('app').style.display='flex';
@@ -1182,7 +1200,17 @@ function modNProdWiz(){document.body.insertAdjacentHTML('beforeend',`<div class=
 async function savWProd(){const n=el('wpNome')?.value?.trim();if(!n){alert('Informe o nome');return;}const p=await addProduto({nome:n,preco:parseFloat(el('wpPreco')?.value)||0,custo:parseFloat(el('wpCusto')?.value)||0});wiz.produto={id:p.id,nome:p.nome,custo:p.custo||0};wiz.preco=p.preco.toString();closeModal('moPWN');renderScreen();}
 
 // ── INIT ─────────────────────────────────────────────────
-window.addEventListener('load',async()=>{try{await loadAll();el('loading').style.display='none';el('app').style.display='flex';nav('home');}catch(e){el('loading').innerHTML='<div style="font-size:40px">&#x26A0;</div><h2>Erro</h2><p>'+e.message+'</p>';}});
+window.addEventListener('load',async()=>{
+  await garantirAdmin();
+  var sessao=carregarSessao();
+  if(sessao&&isTrialValido(sessao)){
+    await iniciarApp();
+  } else {
+    limparSessao();
+    el('loading').style.display='none';
+    renderLoginScreen();
+  }
+});
 </script>
 </body>
 </html>
