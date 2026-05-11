@@ -119,6 +119,17 @@ html,body{height:100%;background:#f0f2f5;font-family:'Poppins',sans-serif;color:
 .srch-ic{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--gray);font-size:16px;pointer-events:none}
 .eye-btn{background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;}
 #rcWrap{position:fixed;left:-9999px;top:-9999px;width:380px;background:#fff;padding:24px;font-family:Courier New,monospace;font-size:12px;line-height:1.7;color:#000;}
+
+#loginScreen{position:fixed;inset:0;background:linear-gradient(135deg,#FF6B00,#FF8C42);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;padding:24px;}
+.login-card{background:#fff;border-radius:22px;padding:28px 22px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.2);}
+.login-logo{font-size:48px;text-align:center;margin-bottom:8px;}
+.login-title{font-size:22px;font-weight:700;text-align:center;color:#1a1a2e;margin-bottom:4px;}
+.login-sub{font-size:12px;text-align:center;color:var(--gray);margin-bottom:22px;}
+.login-tabs{display:flex;background:var(--light);border-radius:10px;padding:3px;margin-bottom:20px;}
+.login-tab{flex:1;padding:8px;border:none;border-radius:8px;font-family:'Poppins',sans-serif;font-size:13px;font-weight:600;cursor:pointer;background:none;color:var(--gray);}
+.login-tab.active{background:#fff;color:var(--org);box-shadow:0 1px 4px rgba(0,0,0,.1);}
+.trial-badge{background:#D1FAE5;color:#065F46;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:600;text-align:center;margin-bottom:16px;}
+
 #loading{position:fixed;inset:0;background:var(--org);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;gap:12px;z-index:999;text-align:center;padding:20px}
 #loading h2{font-size:22px;font-weight:700}
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:999;font-family:'Poppins',sans-serif;white-space:nowrap;pointer-events:none}
@@ -185,6 +196,7 @@ html,body{height:100%;background:#f0f2f5;font-family:'Poppins',sans-serif;color:
 </style>
 </head>
 <body>
+<div id="loginScreen" style="display:none"></div>
 <div id="rcWrap"></div>
 <div id="loading"><div style="font-size:52px">&#x1F4B3;</div><h2>JuliusCredit</h2><p>Carregando...</p></div>
 <div id="app" style="display:none">
@@ -222,6 +234,33 @@ const fmtPhone = raw => { const d=raw.replace(/\D/g,'').replace(/^55/,''); if(d.
 const savePhone = raw => { const d=raw.replace(/\D/g,''); if(d.startsWith('55')&&d.length>=12) return '+'+d; if(d.length>=10) return '+55'+d; return raw; };
 
 let clientes=[], produtos=[], vendas=[], parcelas=[];
+
+var currentUser = null;
+var LOGIN_TAB = 'login';
+
+function hashSenha(s){
+  // Hash simples para nao salvar senha em texto puro
+  var h=0;for(var i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}
+  return 'h'+Math.abs(h).toString(36);
+}
+function salvarSessao(u){
+  currentUser=u;
+  try{localStorage.setItem('jc_user',JSON.stringify({id:u.id,nome:u.nome,email:u.email,admin:u.admin,trial_ate:u.trial_ate}));}catch(e){}
+}
+function limparSessao(){
+  currentUser=null;
+  try{localStorage.removeItem('jc_user');}catch(e){}
+}
+function carregarSessao(){
+  try{var s=localStorage.getItem('jc_user');if(s)currentUser=JSON.parse(s);}catch(e){}
+  return currentUser;
+}
+function isTrialValido(u){
+  if(u.admin)return true;
+  if(!u.trial_ate)return false;
+  return new Date(u.trial_ate)>=new Date();
+}
+
 var hideVals=false;
 var pendingChanges={};
 function fmtH(v){return hideVals?'R$ ----':fmt(v);}
@@ -229,6 +268,82 @@ function eyeSVG(){
   if(!hideVals)return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
   return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
 }
+
+function renderLoginScreen(){
+  var ls=document.getElementById('loginScreen');
+  if(!ls)return;
+  ls.style.display='flex';
+  document.getElementById('app').style.display='none';
+  var isLogin=LOGIN_TAB==='login';
+  ls.innerHTML='<div class="login-card">'+
+    '<div class="login-logo">&#x1F4B3;</div>'+
+    '<div class="login-title">JuliusCredit</div>'+
+    '<div class="login-sub">Controle de vendas e cobranças</div>'+
+    '<div class="login-tabs">'+
+    '<button class="login-tab '+(isLogin?'active':'')+'" onclick="LOGIN_TAB=\'login\';renderLoginScreen()">Entrar</button>'+
+    '<button class="login-tab '+(!isLogin?'active':'')+'" onclick="LOGIN_TAB=\'cadastro\';renderLoginScreen()">Cadastrar</button>'+
+    '</div>'+
+    (!isLogin?'<div class="trial-badge">&#x1F381; 30 dias grátis para novos usuários!</div>':'')+
+    (!isLogin?'<div class="fg"><label class="flabel">Nome</label><input class="finput" id="lgNome" placeholder="Seu nome"></div>':'')+
+    '<div class="fg"><label class="flabel">Email</label><input class="finput" id="lgEmail" type="email" placeholder="seu@email.com" autocomplete="email"></div>'+
+    '<div class="fg"><label class="flabel">Senha</label><input class="finput" id="lgSenha" type="password" placeholder="Mínimo 6 caracteres" autocomplete="'+(isLogin?'current-password':'new-password')+'"></div>'+
+    '<button class="btn btn-pri" id="btnLogin" onclick="'+(isLogin?'fazerLogin()':'fazerCadastro()')+'">'+
+    (isLogin?'Entrar':'Criar conta grátis')+'</button>'+
+    (isLogin?'<p style="text-align:center;font-size:11px;color:var(--gray);margin-top:14px">Não tem conta? <button onclick="LOGIN_TAB=\'cadastro\';renderLoginScreen()" style="background:none;border:none;color:var(--org);font-weight:700;cursor:pointer;font-family:Poppins,sans-serif">Cadastre-se</button></p>':'')+
+    '</div>';
+}
+
+async function fazerLogin(){
+  var btn=document.getElementById('btnLogin');if(btn)btn.disabled=true;
+  var email=(document.getElementById('lgEmail')?.value||'').trim().toLowerCase();
+  var senha=document.getElementById('lgSenha')?.value||'';
+  if(!email||!senha){alert('Preencha email e senha');if(btn)btn.disabled=false;return;}
+  var hash=hashSenha(senha);
+  var res=await supa.from('usuarios').select('*').eq('email',email).eq('senha',hash).single();
+  if(res.error||!res.data){
+    alert('Email ou senha incorretos');if(btn)btn.disabled=false;return;
+  }
+  var u=res.data;
+  if(!u.ativo){alert('Conta desativada. Entre em contato.');if(btn)btn.disabled=false;return;}
+  if(!isTrialValido(u)){alert('Seu período gratuito expirou. Entre em contato para renovar.');if(btn)btn.disabled=false;return;}
+  salvarSessao(u);
+  await iniciarApp();
+}
+
+async function fazerCadastro(){
+  var btn=document.getElementById('btnLogin');if(btn)btn.disabled=true;
+  var nome=(document.getElementById('lgNome')?.value||'').trim();
+  var email=(document.getElementById('lgEmail')?.value||'').trim().toLowerCase();
+  var senha=document.getElementById('lgSenha')?.value||'';
+  if(!nome||!email||!senha){alert('Preencha todos os campos');if(btn)btn.disabled=false;return;}
+  if(senha.length<6){alert('Senha deve ter pelo menos 6 caracteres');if(btn)btn.disabled=false;return;}
+  // Verificar se email já existe
+  var chk=await supa.from('usuarios').select('id').eq('email',email);
+  if(chk.data&&chk.data.length>0){alert('Este email já está cadastrado');if(btn)btn.disabled=false;return;}
+  var trial=new Date();trial.setDate(trial.getDate()+30);
+  var novoUser={id:genId(),email:email,nome:nome,senha:hashSenha(senha),admin:false,trial_ate:trial.toISOString().slice(0,10),ativo:true};
+  var ins=await supa.from('usuarios').insert(novoUser);
+  if(ins.error){alert('Erro ao cadastrar: '+ins.error.message);if(btn)btn.disabled=false;return;}
+  salvarSessao(novoUser);
+  await iniciarApp();
+}
+
+function fazerLogout(){
+  limparSessao();
+  clientes=[];produtos=[];vendas=[];parcelas=[];
+  document.getElementById('app').style.display='none';
+  renderLoginScreen();
+}
+
+async function iniciarApp(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  document.getElementById('loading').style.display='flex';
+  await loadAll();
+  document.getElementById('loading').style.display='none';
+  nav('home');
+}
+
 function togglePrivacy(){
   hideVals=!hideVals;
   var btn=document.querySelector('.eye-btn');
@@ -250,7 +365,7 @@ async function loadAll(){
   if(!clientes.length){await addCliente({nome:'Ana Silva',telefone:'+5519991234567'});}
   if(!produtos.length){await addProduto({nome:'IPTV Mensal',preco:35,custo:0});await addProduto({nome:'Emprestimo',preco:100,custo:0});}
 }
-async function addCliente(d){const o={id:genId(),...d};await supa.from('clientes').insert(o);clientes.push(o);return o;}
+async function addCliente(d){const o={id:genId(),user_id:currentUser?.id,...d};await supa.from('clientes').insert(o);clientes.push(o);return o;}
 async function delCliente(id){
   var cl=clientes.find(function(x){return x.id===id;});
   if(!cl)return;
@@ -261,9 +376,9 @@ async function delCliente(id){
 }
 
 async function updCliente(id,d){await supa.from('clientes').update(d).eq('id',id);const i=clientes.findIndex(c=>c.id===id);if(i>=0)clientes[i]={...clientes[i],...d};}
-async function addProduto(d){const o={id:genId(),custo:0,...d};await supa.from('produtos').insert(o);produtos.push(o);return o;}
+async function addProduto(d){const o={id:genId(),custo:0,user_id:currentUser?.id,...d};await supa.from('produtos').insert(o);produtos.push(o);return o;}
 async function updProduto(id,d){await supa.from('produtos').update(d).eq('id',id);const i=produtos.findIndex(p=>p.id===id);if(i>=0)produtos[i]={...produtos[i],...d};}
-async function addVenda(d){await supa.from('vendas').insert(d);vendas.unshift(d);}
+async function addVenda(d){d.user_id=currentUser?.id;await supa.from('vendas').insert(d);vendas.unshift(d);}
 async function addParcela(d){await supa.from('parcelas').insert(d);parcelas.push(d);return d;}
 async function updParcela(id,upd){await supa.from('parcelas').update(upd).eq('id',id);const i=parcelas.findIndex(p=>p.id===id);if(i>=0)parcelas[i]={...parcelas[i],...upd};}
 async function delParcela(id){await supa.from('parcelas').delete().eq('id',id);parcelas=parcelas.filter(p=>p.id!==id);}
@@ -378,7 +493,18 @@ function renderProdutos(){
 }
 
 // ── MAIS ────────────────────────────────────────────────
-function renderMais(){return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><button class="rel-card" onclick="nav('produtos')"><div class="rel-ic">&#x1F4E6;</div><div class="rel-label">Produtos</div><div class="rel-sub">${produtos.length} cadastrados</div></button><button class="rel-card" onclick="nav('relatorios')"><div class="rel-ic">&#x1F4CA;</div><div class="rel-label">Relatorios</div><div class="rel-sub">DRE e analises</div></button></div>`;}
+function renderMais(){
+  var u=currentUser;
+  var trialInfo='';
+  if(u&&!u.admin&&u.trial_ate){
+    var dias=Math.ceil((new Date(u.trial_ate)-new Date())/86400000);
+    trialInfo='<div class="card" style="background:'+(dias<=5?'#FEE2E2':'#D1FAE5')+';margin-bottom:10px">'+
+      '<div style="font-size:13px;font-weight:600;color:'+(dias<=5?'var(--red)':'var(--grn)')+'">'+
+      (dias>0?'&#x23F3; '+dias+' dias de trial restantes':'&#x26A0; Trial expirado')+
+      '</div></div>';
+  }
+  var userInfo=u?'<div class="card" style="margin-bottom:10px"><div style="font-size:13px;font-weight:600">'+escH(u.nome||u.email)+'</div><div style="font-size:11px;color:var(--gray)">'+escH(u.email)+(u.admin?' · Admin':'')+'</div></div>':'';
+  return userInfo+trialInfo+ `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><button class="rel-card" onclick="nav('produtos')"><div class="rel-ic">&#x1F4E6;</div><div class="rel-label">Produtos</div><div class="rel-sub">${produtos.length} cadastrados</div></button><button class="rel-card" onclick="nav('relatorios')"><div class="rel-ic">&#x1F4CA;</div><div class="rel-label">Relatorios</div><div class="rel-sub">DRE e analises</div></button></div>`;}
 
 // ── RELATORIOS ──────────────────────────────────────────────────────────────
 function getMeses(){var m=[];for(var i=5;i>=-2;i--){var d=new Date();d.setMonth(d.getMonth()-i);m.push(d.toISOString().slice(0,7));}return m;}
