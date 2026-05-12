@@ -741,6 +741,205 @@ function relInadimplentes(){
   Object.entries(cm).sort(function(a,b){return b[1].total-a[1].total;}).forEach(function(e){rows+='<div class="fitem" style="cursor:default"><div class="ftop"><span class="fname">'+escH(e[0])+'</span><span class="fval">'+fmt(e[1].total)+'</span></div><div class="fbot"><span class="fsub">'+e[1].count+' parcela(s)'+(e[1].tel?' - '+fmtPhone(e[1].tel):'')+'</span></div></div>';});
   document.body.insertAdjacentHTML('beforeend','<div class="moverlay" id="relI" onclick="if(event.target===this)closeModal(\'relI\')"><div class="modal"><button class="mclose" onclick="closeModal(\'relI\')">&#x2715;</button><div class="mtit">&#x26A0;&#xFE0F; Inadimplentes</div>'+(rows?'<div class="lwrap">'+rows+'</div>':'<div class="empty"><div class="empty-ic">&#x1F389;</div><div class="empty-tx">Nenhum atraso!</div></div>')+'</div></div>');
 }
+
+// ── CONFIGURAÇÕES ─────────────────────────────────────────────────────────────
+function renderConfiguracoes(){
+  return '<div class="menu-grid">'+
+    '<button class="menu-card" onclick="nav(\'conta\')"><div class="menu-ic">&#x1F464;</div><div class="menu-label">Conta</div><div class="menu-sub">Senha e perfil</div></button>'+
+    '<button class="menu-card" onclick="nav(\'empresa\')"><div class="menu-ic">&#x1F3E2;</div><div class="menu-label">Empresa</div><div class="menu-sub">Dados do negocio</div></button>'+
+    '</div>';
+}
+
+// ── CONTA ─────────────────────────────────────────────────────────────────────
+function renderConta(){
+  var u=currentUser||{};
+  return '<div style="text-align:center;padding:20px 0">'+
+    '<div class="avatar">'+(u.nome?u.nome[0].toUpperCase():'?')+'</div>'+
+    '<div class="profile-name">'+escH(u.nome||'')+'</div>'+
+    '<div class="profile-email">'+escH(u.email||'')+'</div>'+
+    '</div>'+
+    '<div class="lwrap" style="margin-bottom:12px">'+
+    '<div class="litem cp" onclick="modAlterarSenha()"><div class="lname">Alterar senha</div></div>'+
+    '</div>'+
+    '<button class="btn btn-danger" style="width:100%" onclick="confExcluirConta()">Excluir conta</button>';
+}
+function modAlterarSenha(){
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="moverlay" id="moAS" onclick="if(event.target===this)closeModal(\'moAS\')">'+
+    '<div class="modal"><button class="mclose" onclick="closeModal(\'moAS\')">&#x2715;</button>'+
+    '<div class="mtit">Alterar Senha</div>'+
+    '<div class="fg"><label class="flabel">Senha atual</label><input class="finput" id="asSenhaAtual" type="password"></div>'+
+    '<div class="fg"><label class="flabel">Nova senha</label><input class="finput" id="asNovaSenha" type="password" placeholder="Minimo 6 caracteres"></div>'+
+    '<div class="fg"><label class="flabel">Confirmar nova senha</label><input class="finput" id="asConfirmar" type="password"></div>'+
+    '<button class="btn btn-pri" onclick="salvarNovaSenha()">Salvar</button></div></div>');
+}
+async function salvarNovaSenha(){
+  var atual=el('asSenhaAtual')&&el('asSenhaAtual').value||'';
+  var nova=el('asNovaSenha')&&el('asNovaSenha').value||'';
+  var conf=el('asConfirmar')&&el('asConfirmar').value||'';
+  if(!atual||!nova||!conf){alert('Preencha todos os campos');return;}
+  if(nova.length<6){alert('Nova senha deve ter ao menos 6 caracteres');return;}
+  if(nova!==conf){alert('As senhas nao coincidem');return;}
+  var res=await supa.from('usuarios').select('id').eq('id',currentUser.id).eq('senha',hashSenha(atual));
+  if(!res.data||!res.data.length){alert('Senha atual incorreta');return;}
+  await supa.from('usuarios').update({senha:hashSenha(nova)}).eq('id',currentUser.id);
+  closeModal('moAS');toast('Senha alterada!');
+}
+function confExcluirConta(){
+  if(!confirm('Tem certeza? Todos os seus dados serao apagados!'))return;
+  excluirContaConfirmado();
+}
+async function excluirContaConfirmado(){
+  var uid=currentUser&&currentUser.id;
+  var vids=vendas.map(function(v){return v.id;});
+  if(vids.length)await supa.from('parcelas').delete().in('vendaid',vids);
+  await supa.from('vendas').delete().eq('user_id',uid);
+  await supa.from('clientes').delete().eq('user_id',uid);
+  await supa.from('produtos').delete().eq('user_id',uid);
+  await supa.from('usuarios').delete().eq('id',uid);
+  fazerLogout();
+}
+
+// ── EMPRESA ───────────────────────────────────────────────────────────────────
+function renderEmpresa(){
+  var u=currentUser||{};
+  return '<div class="card">'+
+    '<div class="fg"><label class="flabel">Nome da empresa</label><input class="finput" id="empNome" value="'+escH(u.empresa_nome||'')+'" placeholder="Ex: Julius Digital"></div>'+
+    '<div class="fg"><label class="flabel">CNPJ</label><input class="finput" id="empCnpj" value="'+escH(u.empresa_cnpj||'')+'" placeholder="00.000.000/0000-00"></div>'+
+    '<div class="fg"><label class="flabel">Telefone</label><input class="finput" id="empTel" type="tel" value="'+escH(u.empresa_tel||'')+'" placeholder="+55 19 99999-9999"></div>'+
+    '<div class="fg"><label class="flabel">Endereco</label><input class="finput" id="empEnd" value="'+escH(u.empresa_end||'')+'" placeholder="Rua, numero, cidade"></div>'+
+    '<button class="btn btn-pri" onclick="salvarEmpresa()">Salvar</button></div>';
+}
+async function salvarEmpresa(){
+  var upd={empresa_nome:el('empNome')&&el('empNome').value||'',empresa_cnpj:el('empCnpj')&&el('empCnpj').value||'',empresa_tel:el('empTel')&&el('empTel').value||'',empresa_end:el('empEnd')&&el('empEnd').value||''};
+  await supa.from('usuarios').update(upd).eq('id',currentUser.id);
+  Object.assign(currentUser,upd);salvarSessao(currentUser);toast('Empresa salva!');
+}
+
+// ── MEU PLANO ─────────────────────────────────────────────────────────────────
+function renderMeuPlano(){
+  var u=currentUser||{};
+  if(u.admin)return '<div class="card" style="text-align:center;padding:30px"><div style="font-size:40px">&#x1F451;</div><div style="font-size:18px;font-weight:700;margin-top:10px">Conta Admin</div><div style="color:var(--gray);margin-top:6px">Acesso ilimitado</div></div>';
+  var hoje=new Date();hoje.setHours(0,0,0,0);
+  var ate=u.trial_ate?new Date(u.trial_ate):null;
+  if(ate)ate.setHours(0,0,0,0);
+  var pago=ate&&ate>=hoje;
+  var dias=ate?Math.ceil((ate-hoje)/86400000):0;
+  if(pago)return '<div class="card" style="text-align:center;padding:24px;background:linear-gradient(135deg,#D1FAE5,#A7F3D0)">'+
+    '<div style="font-size:44px">&#x2705;</div><div style="font-size:20px;font-weight:700;color:#065F46;margin-top:10px">Plano Ativo</div>'+
+    '<div style="color:#047857;margin-top:6px">Valido ate '+fmtDate(u.trial_ate)+'</div>'+
+    '<div style="color:#047857;font-size:12px;margin-top:4px">'+dias+' dias restantes</div></div>';
+  return '<div class="card" style="text-align:center;padding:20px;background:#FEE2E2;margin-bottom:12px">'+
+    '<div style="font-size:36px">&#x26A0;&#xFE0F;</div><div style="font-size:16px;font-weight:700;color:var(--red);margin-top:8px">Plano Vencido</div>'+
+    '<div style="color:var(--red);font-size:12px;margin-top:4px">Renove para continuar usando</div></div>'+
+    '<div class="card" style="text-align:center">'+
+    '<div style="font-size:15px;font-weight:700;margin-bottom:12px">Renovar Plano - R$ 29,90/mes</div>'+
+    '<div style="background:var(--light);border-radius:10px;padding:14px;margin-bottom:12px">'+
+    '<div style="font-size:12px;color:var(--gray);margin-bottom:6px">Chave Pix</div>'+
+    '<div style="font-size:14px;font-weight:600">juvascaojr@gmail.com</div></div>'+
+    '<button class="btn btn-pri" onclick="navigator.clipboard&&navigator.clipboard.writeText(\'juvascaojr@gmail.com\').then(function(){toast(\'Chave copiada!\');})">&#x1F4CB; Copiar Chave Pix</button>'+
+    '<p style="font-size:11px;color:var(--gray);margin-top:12px">Apos o pagamento aguarde a ativacao pelo administrador.</p></div>';
+}
+
+// ── GESTOR ADMIN ──────────────────────────────────────────────────────────────
+var _usuarios=[];
+async function renderGestorAsync(){
+  var c2=el('content');
+  if(!c2)return;
+  var res=await supa.from('usuarios').select('*').order('criado_em',{ascending:false});
+  _usuarios=res.data||[];
+  var hoje=new Date();hoje.setHours(0,0,0,0);
+  var rows='';
+  _usuarios.forEach(function(u){
+    var ate=u.trial_ate?new Date(u.trial_ate):null;
+    if(ate)ate.setHours(0,0,0,0);
+    var pago=ate&&ate>=hoje;
+    var dias=ate?Math.ceil((ate-hoje)/86400000):0;
+    var badge=u.admin?'<span class="status-badge badge-pago">Admin</span>':pago?'<span class="status-badge badge-trial">'+dias+'d</span>':'<span class="status-badge badge-exp">Expirado</span>';
+    rows+='<div class="user-row" onclick="gestorVerUsuario(\''+u.id+'\')">'+
+      '<div class="user-avatar">'+(u.nome?u.nome[0].toUpperCase():'?')+'</div>'+
+      '<div class="user-info"><div class="user-name">'+escH(u.nome||u.email)+'</div>'+
+      '<div class="user-meta">'+escH(u.email)+'</div></div>'+badge+'</div>';
+  });
+  c2.innerHTML='<div class="sec"><span class="sectit">'+_usuarios.length+' usuarios</span></div>'+
+    '<div class="lwrap">'+rows+'</div>';
+}
+function gestorVerUsuario(uid){
+  var u=_usuarios.find(function(x){return x.id===uid;});if(!u)return;
+  var hoje=new Date();hoje.setHours(0,0,0,0);
+  var ate=u.trial_ate?new Date(u.trial_ate):null;if(ate)ate.setHours(0,0,0,0);
+  var dias=ate?Math.ceil((ate-hoje)/86400000):0;
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="moverlay" id="moGU" onclick="if(event.target===this)closeModal(\'moGU\')">'+
+    '<div class="modal"><button class="mclose" onclick="closeModal(\'moGU\')">&#x2715;</button>'+
+    '<div class="mtit">'+escH(u.nome||u.email)+'</div>'+
+    '<div style="background:var(--light);border-radius:12px;padding:14px;margin-bottom:14px;font-size:13px">'+
+    '<div style="margin-bottom:4px"><b>Email:</b> '+escH(u.email)+'</div>'+
+    '<div style="margin-bottom:4px"><b>Cadastro:</b> '+fmtDate((u.criado_em||'').slice(0,10))+'</div>'+
+    '<div><b>Plano ate:</b> '+(u.trial_ate?fmtDate(u.trial_ate):'—')+' ('+dias+'d)</div></div>'+
+    '<div class="fg"><label class="flabel">Renovar plano ate</label><input class="finput" id="guData" type="date" value="'+(u.trial_ate||'')+'"></div>'+
+    '<div class="btn-row">'+
+    '<button class="btn btn-pri" style="flex:2" onclick="gestorRenovar(\''+uid+'\')">&#x2713; Salvar</button>'+
+    '<button class="btn btn-danger" onclick="gestorDesativar(\''+uid+'\')">'+(u.ativo?'Desativar':'Ativar')+'</button>'+
+    '</div></div></div>');
+}
+async function gestorRenovar(uid){
+  var data=el('guData')&&el('guData').value;if(!data){alert('Informe a data');return;}
+  await supa.from('usuarios').update({trial_ate:data,ativo:true}).eq('id',uid);
+  var u=_usuarios.find(function(x){return x.id===uid;});
+  if(u){u.trial_ate=data;u.ativo=true;}
+  closeModal('moGU');toast('Plano renovado ate '+fmtDate(data)+'!');renderGestorAsync();
+}
+async function gestorDesativar(uid){
+  var u=_usuarios.find(function(x){return x.id===uid;});if(!u)return;
+  var novoAtivo=!u.ativo;
+  if(!confirm((novoAtivo?'Ativar':'Desativar')+' conta de '+u.email+'?'))return;
+  await supa.from('usuarios').update({ativo:novoAtivo}).eq('id',uid);
+  u.ativo=novoAtivo;closeModal('moGU');
+  toast('Conta '+(novoAtivo?'ativada':'desativada')+'!');renderGestorAsync();
+}
+
+// ── DATAS EDITÁVEIS NAS PARCELAS ──────────────────────────────────────────────
+function modEditarDataParcela(pid){
+  var p=parcelas.find(function(x){return x.id===pid;});if(!p)return;
+  var vp=parcelas.filter(function(x){return x.vendaid===p.vendaid;}).sort(function(a,b){return a.numero-b.numero;});
+  var proximas=vp.filter(function(x){return x.numero>p.numero&&!x.pago;});
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="moverlay" id="moED" onclick="if(event.target===this)closeModal(\'moED\')">'+
+    '<div class="modal"><button class="mclose" onclick="closeModal(\'moED\')">&#x2715;</button>'+
+    '<div class="mtit">Alterar Vencimento</div>'+
+    '<div style="background:var(--light);border-radius:12px;padding:12px;margin-bottom:14px;font-size:13px">'+
+    'Parcela '+p.numero+' - Atual: <b>'+fmtDate(p.vencimento)+'</b></div>'+
+    '<div class="fg"><label class="flabel">Nova data</label><input class="finput" id="edData" type="date" value="'+p.vencimento+'"></div>'+
+    (proximas.length?'<div style="background:#FFF3EB;border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px">'+
+    '&#x2139;&#xFE0F; Ha <b>'+proximas.length+'</b> parcelas futuras. Deseja atualizar todas pela mesma diferenca de dias?</div>'+
+    '<div class="btn-row">'+
+    '<button class="btn btn-sec" onclick="salvarDataParcela(\''+pid+'\',false)">Só esta</button>'+
+    '<button class="btn btn-pri" onclick="salvarDataParcela(\''+pid+'\',true)">Esta + proximas</button>'+
+    '</div>':
+    '<button class="btn btn-pri" onclick="salvarDataParcela(\''+pid+'\',false)">Salvar</button>')+
+    '</div></div>');
+}
+async function salvarDataParcela(pid,atualizarProximas){
+  var p=parcelas.find(function(x){return x.id===pid;});if(!p)return;
+  var novaData=el('edData')&&el('edData').value;if(!novaData){alert('Informe a data');return;}
+  var diffMs=new Date(novaData)-new Date(p.vencimento);
+  var diffDias=Math.round(diffMs/86400000);
+  await updParcela(pid,{vencimento:novaData});
+  if(atualizarProximas&&diffDias!==0){
+    var proximas=parcelas.filter(function(x){return x.vendaid===p.vendaid&&x.numero>p.numero&&!x.pago;});
+    for(var i=0;i<proximas.length;i++){
+      var px=proximas[i];
+      var dt=new Date(px.vencimento);dt.setDate(dt.getDate()+diffDias);
+      var nd=dt.toISOString().slice(0,10);
+      await updParcela(px.id,{vencimento:nd});
+    }
+  }
+  closeModal('moED');renderScreen();
+  toast(atualizarProximas&&diffDias?'Data e proximas atualizadas!':'Data atualizada!');
+}
+
+
 function relExportar(){
   var t=todayStr();var mes=t.slice(0,7);
   var tR=parcelas.filter(function(p){return p.pago&&p.datapagamento&&p.datapagamento.slice(0,7)===mes;}).reduce(function(s,p){return s+(p.valor||0);},0);
@@ -780,7 +979,7 @@ function renderParcelas(){
     if(!p.pago&&p.vencimento===t)tag='<span class="tag-org">Hoje</span>';
     else if(!p.pago&&p.vencimento<t)tag='<span class="tag-red">Atraso</span>';
     else if(p.pago)tag='<span class="tag-grn">Pago</span>';
-    pRows+=`<div class="prow2"><div class="prow2-main"><div class="pnum">${p.numero}</div><div class="pinfo"><div class="pdate">${fmtDate(p.vencimento)} ${tag}</div><div class="ppay">${p.pagamento} · ${fmt(p.valor)}</div>${p.pago?`<div class="prow2-paid-info">Pago em ${fmtDate(p.datapagamento?.slice(0,10))}</div>`:''}</div><div style="margin-left:auto;display:flex;align-items:center;gap:8px"><div class="pval">${fmt(p.valor)}</div><div class="chk ${p.pago?'on':''}" onclick="toggleParc('${p.id}')">${p.pago?'&#x2713;':''}</div></div></div><button class="prow2-del" onclick="excluirParc('${p.id}')">&#x1F5D1; Excluir</button></div>`;
+    pRows+=`<div class="prow2"><div class="prow2-main"><div class="pnum">${p.numero}</div><div class="pinfo"><div class="pdate" onclick="modEditarDataParcela('${p.id}')" style="cursor:pointer">${fmtDate(p.vencimento)} ${tag} <span style="font-size:10px;color:var(--org)">&#x270E;</span></div><div class="ppay">${p.pagamento} · ${fmt(p.valor)}</div>${p.pago?`<div class="prow2-paid-info">Pago em ${fmtDate(p.datapagamento?.slice(0,10))}</div>`:''}</div><div style="margin-left:auto;display:flex;align-items:center;gap:8px"><div class="pval">${fmt(p.valor)}</div><div class="chk ${p.pago?'on':''}" onclick="toggleParc('${p.id}')">${p.pago?'&#x2713;':''}</div></div></div><button class="prow2-del" onclick="excluirParc('${p.id}')">&#x1F5D1; Excluir</button></div>`;
   });
   return `<div style="padding-bottom:80px"><div class="pscreen-top"><div class="pscreen-stat"><div class="pscreen-stat-label" style="color:var(--grn)">&#x2193; Pago</div><div class="pscreen-stat-val" style="color:var(--grn)">${fmt(pago)}</div></div><div class="pscreen-stat"><div class="pscreen-stat-label" style="color:var(--red)">&#x2191; Em atraso</div><div class="pscreen-stat-val" style="color:var(--red)">${fmt(debit)}</div></div></div>
   <div style="font-size:13px;font-weight:600;color:var(--gray);margin-bottom:6px">${escH(cli?cli.nome:'')} · Venda #${venda.numero}</div>
