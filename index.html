@@ -117,6 +117,27 @@ html,body{height:100%;background:#f0f2f5;font-family:'Poppins',sans-serif;color:
 .empty-tx{font-size:13px;font-weight:500}
 .srch{position:relative;margin-bottom:11px}
 .srch-ic{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--gray);font-size:16px;pointer-events:none}
+
+.avatar{width:70px;height:70px;border-radius:50%;background:var(--org);color:#fff;font-size:28px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;}
+.profile-name{font-size:20px;font-weight:700;text-align:center;margin-bottom:4px;}
+.profile-email{font-size:13px;color:var(--gray);text-align:center;margin-bottom:20px;}
+.menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.menu-card{background:#fff;border-radius:14px;padding:16px;box-shadow:var(--shd);display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;border:none;font-family:'Poppins',sans-serif;width:100%;}
+.menu-card:active{background:var(--org-lt);}
+.menu-ic{font-size:28px;}
+.menu-label{font-size:12px;font-weight:700;color:#1a1a2e;text-align:center;}
+.menu-sub{font-size:10px;color:var(--gray);text-align:center;}
+.status-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:700;}
+.badge-pago{background:#D1FAE5;color:#065F46;}
+.badge-trial{background:#FEF3C7;color:#92400E;}
+.badge-exp{background:#FEE2E2;color:var(--red);}
+.user-row{display:flex;align-items:center;padding:12px 15px;border-bottom:1px solid var(--bdr);gap:12px;cursor:pointer;}
+.user-row:active{background:var(--org-lt);}
+.user-avatar{width:42px;height:42px;border-radius:50%;background:var(--org);color:#fff;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.user-info{flex:1;}
+.user-name{font-size:14px;font-weight:600;}
+.user-meta{font-size:11px;color:var(--gray);margin-top:2px;}
+
 .eye-btn{background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;}
 #rcWrap{position:fixed;left:-9999px;top:-9999px;width:380px;background:#fff;padding:24px;font-family:Courier New,monospace;font-size:12px;line-height:1.7;color:#000;}
 
@@ -404,13 +425,18 @@ async function delVenda(id){await supa.from('parcelas').delete().eq('vendaid',id
 
 // ── NAV ─────────────────────────────────────────────────
 function updBadge(){const t=todayStr();const c=parcelas.filter(p=>!p.pago&&p.vencimento<=t).length;const b=el('finBadge');if(b){b.style.display=c>0?'block':'none';b.textContent=c;}}
-function nav(s,p2){screen=s;if(p2!==undefined)param=p2;const titles={home:'JuliusCredit',vendas:'Vendas',financeiro:'Financeiro',clientes:'Clientes',produtos:'Produtos',relatorios:'Relatorios',mais:'Mais','nova-venda':'Nova Venda','venda-detail':'Detalhes da Venda','venda-parcelas':'Parcelas'};el('hdrTitle').textContent=titles[s]||'JuliusCredit';const hasBack=['nova-venda','venda-detail','venda-parcelas','produtos','relatorios'].includes(s);el('btnBack').style.display=hasBack?'flex':'none';el('bnav').style.display=['nova-venda','venda-detail','venda-parcelas'].includes(s)?'none':'flex';el('hdrRight').innerHTML=s==='home'?'<button class="eye-btn" onclick="togglePrivacy()">'+eyeSVG()+'</button>':'';['home','vendas','financeiro','clientes','mais'].forEach(x=>{const n=el('nav-'+x);if(n)n.classList.toggle('active',x===s||(x==='mais'&&['produtos','relatorios','mais'].includes(s)));});updBadge();
+function nav(s,p2){screen=s;if(p2!==undefined)param=p2;const titles={home:'JuliusCredit',vendas:'Vendas',financeiro:'Financeiro',clientes:'Clientes',produtos:'Produtos',relatorios:'Relatorios',mais:'Mais','nova-venda':'Nova Venda','venda-detail':'Detalhes da Venda','venda-parcelas':'Parcelas',configuracoes:'Configurações',conta:'Conta',empresa:'Empresa','meu-plano':'Meu Plano',gestor:'Gestor'};el('hdrTitle').textContent=titles[s]||'JuliusCredit';const hasBack=['nova-venda','venda-detail','venda-parcelas','produtos','relatorios','configuracoes','conta','empresa','meu-plano','gestor'].includes(s);el('btnBack').style.display=hasBack?'flex':'none';el('bnav').style.display=['nova-venda','venda-detail','venda-parcelas'].includes(s)?'none':'flex';el('hdrRight').innerHTML=s==='home'?'<button class="eye-btn" onclick="togglePrivacy()">'+eyeSVG()+'</button>':'';['home','vendas','financeiro','clientes','mais'].forEach(x=>{const n=el('nav-'+x);if(n)n.classList.toggle('active',x===s||(x==='mais'&&['produtos','relatorios','mais'].includes(s)));});updBadge();
   var fs=el('fixedSalvar');if(fs)fs.style.display=(s==='venda-parcelas'?'block':'none');
   pendingChanges={};
   renderScreen();}
-function goBack(){const b={produtos:'mais',relatorios:'mais','venda-detail':'vendas','venda-parcelas':'venda-detail','nova-venda':'vendas'};nav(b[screen]||'home');}
+function goBack(){const b={produtos:'mais',relatorios:'mais','venda-detail':'vendas','venda-parcelas':'venda-detail','nova-venda':'vendas',configuracoes:'mais',conta:'configuracoes',empresa:'configuracoes','meu-plano':'mais',gestor:'mais'};nav(b[screen]||'home');}
 function closeModal(id){const m=el(id);if(m)m.remove();}
-function renderScreen(){const c=el('content');if(!c)return;if(screen==='home')c.innerHTML=renderHome();else if(screen==='vendas')c.innerHTML=renderVendas();else if(screen==='financeiro')c.innerHTML=renderFin();else if(screen==='clientes')c.innerHTML=renderClientes();else if(screen==='produtos')c.innerHTML=renderProdutos();else if(screen==='relatorios')c.innerHTML=renderRelatorios();else if(screen==='mais')c.innerHTML=renderMais();else if(screen==='nova-venda')c.innerHTML=renderWiz();else if(screen==='venda-detail')c.innerHTML=renderDetail();else if(screen==='venda-parcelas')c.innerHTML=renderParcelas();}
+function renderScreen(){const c=el('content');if(!c)return;if(screen==='home')c.innerHTML=renderHome();else if(screen==='vendas')c.innerHTML=renderVendas();else if(screen==='financeiro')c.innerHTML=renderFin();else if(screen==='clientes')c.innerHTML=renderClientes();else if(screen==='produtos')c.innerHTML=renderProdutos();else if(screen==='relatorios')c.innerHTML=renderRelatorios();else if(screen==='mais')c.innerHTML=renderMais();else if(screen==='nova-venda')c.innerHTML=renderWiz();else if(screen==='venda-detail')c.innerHTML=renderDetail();else if(screen==='venda-parcelas')c.innerHTML=renderParcelas();
+  else if(screen==='configuracoes')c.innerHTML=renderConfiguracoes();
+  else if(screen==='conta')c.innerHTML=renderConta();
+  else if(screen==='empresa')c.innerHTML=renderEmpresa();
+  else if(screen==='meu-plano')c.innerHTML=renderMeuPlano();
+  else if(screen==='gestor'){c.innerHTML='<div class="empty"><div class="empty-ic">⏳</div></div>';renderGestorAsync();}}
 
 // ── HOME ────────────────────────────────────────────────
 function getHomeRange(){const t=todayStr();const mes=t.slice(0,7);const ano=t.slice(0,4);if(homeFilter==='mes')return{de:mes+'-01',ate:mes+'-31'};if(homeFilter==='ano')return{de:ano+'-01-01',ate:ano+'-12-31'};return{de:homeDe||t,ate:homeAte||t};}
@@ -512,19 +538,28 @@ function renderProdutos(){
 
 // ── MAIS ────────────────────────────────────────────────
 function renderMais(){
-  var u=currentUser;
-  var trialInfo='';
-  if(u&&!u.admin&&u.trial_ate){
-    var dias=Math.ceil((new Date(u.trial_ate)-new Date())/86400000);
-    trialInfo='<div class="card" style="background:'+(dias<=5?'#FEE2E2':'#D1FAE5')+';margin-bottom:10px">'+
-      '<div style="font-size:13px;font-weight:600;color:'+(dias<=5?'var(--red)':'var(--grn)')+'">'+
-      (dias>0?'&#x23F3; '+dias+' dias de trial restantes':'&#x26A0; Trial expirado')+
-      '</div></div>';
-  }
-  var userInfo=u?'<div class="card" style="margin-bottom:10px"><div style="font-size:13px;font-weight:600">'+escH(u.nome||u.email)+'</div><div style="font-size:11px;color:var(--gray)">'+escH(u.email)+(u.admin?' · Admin':'')+'</div></div>':'';
-  return userInfo+trialInfo+ `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><button class="rel-card" onclick="nav('produtos')"><div class="rel-ic">&#x1F4E6;</div><div class="rel-label">Produtos</div><div class="rel-sub">${produtos.length} cadastrados</div></button><button class="rel-card" onclick="nav('relatorios')"><div class="rel-ic">&#x1F4CA;</div><div class="rel-label">Relatorios</div><div class="rel-sub">DRE e analises</div></button></div>`;}
+  var u=currentUser||{};
+  var dias=u.trial_ate?Math.ceil((new Date(u.trial_ate)-new Date())/86400000):0;
+  var statusTxt=u.admin?'Admin':dias>0?dias+' dias restantes':'Trial expirado';
+  var statusClass=u.admin?'badge-pago':dias>7?'badge-trial':dias>0?'badge-exp':'badge-exp';
+  var userInfo='<div class="card" style="margin-bottom:12px;display:flex;align-items:center;gap:14px" onclick="nav(\'conta\')" >'+
+    '<div class="avatar" style="width:48px;height:48px;font-size:20px;margin:0;flex-shrink:0">'+(u.nome?u.nome[0].toUpperCase():'?')+'</div>'+
+    '<div style="flex:1"><div style="font-weight:700;font-size:15px">'+escH(u.nome||'')+'</div>'+
+    '<div style="font-size:11px;color:var(--gray)">'+escH(u.email||'')+'</div>'+
+    '<span class="status-badge '+statusClass+'" style="margin-top:4px;font-size:10px">'+statusTxt+'</span></div>'+
+    '<span style="color:var(--gray);font-size:18px">›</span></div>';
+  var adminCard=u.admin?'<button class="menu-card" style="grid-column:1/-1;background:linear-gradient(135deg,#1a1a2e,#2d2d4e);color:#fff" onclick="nav(\'gestor\')"><div class="menu-ic">👑</div><div class="menu-label" style="color:#fff">Gestor Admin</div><div class="menu-sub" style="color:rgba(255,255,255,.6)">Gerenciar usuários</div></button>':'';
+  return userInfo+
+    '<div class="menu-grid">'+
+    '<button class="menu-card" onclick="nav(\'configuracoes\')"><div class="menu-ic">⚙️</div><div class="menu-label">Configurações</div><div class="menu-sub">Conta e empresa</div></button>'+
+    '<button class="menu-card" onclick="nav(\'meu-plano\')"><div class="menu-ic">📋</div><div class="menu-label">Meu Plano</div><div class="menu-sub">'+statusTxt+'</div></button>'+
+    '<button class="menu-card" onclick="nav(\'produtos\')"><div class="menu-ic">📦</div><div class="menu-label">Produtos</div><div class="menu-sub">'+produtos.length+' cadastrados</div></button>'+
+    '<button class="menu-card" onclick="nav(\'relatorios\')"><div class="menu-ic">📊</div><div class="menu-label">Relatórios</div><div class="menu-sub">DRE e análises</div></button>'+
+    adminCard+
+    '<button class="menu-card" style="grid-column:1/-1;background:#FEE2E2" onclick="fazerLogout()"><div class="menu-ic">🚪</div><div class="menu-label" style="color:var(--red)">Sair da conta</div></button>'+
+    '</div>';
+}
 
-// ── RELATORIOS ──────────────────────────────────────────────────────────────
 function getMeses(){var m=[];for(var i=5;i>=-2;i--){var d=new Date();d.setMonth(d.getMonth()-i);m.push(d.toISOString().slice(0,7));}return m;}
 function nomeMes(m){var p=m.split('-');return new Date(p[0],parseInt(p[1])-1).toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}).toUpperCase();}
 function mScroll(cur,cbName){
