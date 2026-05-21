@@ -624,6 +624,8 @@ function duplicarVenda(id){
 // ── FINANCEIRO ──────────────────────────────────────────
 function renderFin(){
   const t=todayStr();
+  const amanha=new Date();amanha.setDate(amanha.getDate()+1);const amanhaStr=amanha.toISOString().slice(0,10);
+  const cobrarCount=parcelas.filter(p=>!p.pago&&(p.vencimento===t||p.vencimento===amanhaStr)).length;
   const atraso=parcelas.filter(p=>p.vencimento<t&&!p.pago).sort((a,b)=>a.vencimento.localeCompare(b.vencimento));
   const avencer=parcelas.filter(p=>p.vencimento>=t&&!p.pago).sort((a,b)=>a.vencimento.localeCompare(b.vencimento));
   const list=finTab==='atraso'?atraso:avencer;
@@ -642,7 +644,7 @@ function renderFin(){
     rows+='</div>';
   });
   const empty=`<div class="card"><div class="empty"><div class="empty-ic">${finTab==='atraso'?'&#x1F389;':'&#x2705;'}</div><div class="empty-tx">${finTab==='atraso'?'Sem atrasos!':'Nada a vencer!'}</div></div></div>`;
-  return `<div class="ohdr"><div class="olabel">${finTab==='atraso'?'Em Atraso':'A Vencer'}</div><div class="ototal">${fmt(total)}</div><div class="tabrow"><button class="tab ${finTab!=='atraso'?'on':''}" onclick="finTab='hoje';renderScreen()">A Vencer (${avencer.length})</button><button class="tab ${finTab==='atraso'?'on-red':''}" onclick="finTab='atraso';renderScreen()">Atraso (${atraso.length})</button><button class=\'tab\' onclick=\'abrirDisparo()\' style=\'background:var(--org);color:#fff;padding:6px 14px\'>&#x1F4F2;</button></div></div>${list.length?rows:empty}`;
+  return `<div class="ohdr"><div class="olabel">${finTab==='atraso'?'Em Atraso':'A Vencer'}</div><div class="ototal">${fmt(total)}</div><div class="tabrow"><button class="tab ${finTab!=='atraso'?'on':''}" onclick="finTab='hoje';renderScreen()">A Vencer (${avencer.length})</button><button class="tab ${finTab==='atraso'?'on-red':''}" onclick="finTab='atraso';renderScreen()">Atraso (${atraso.length})</button><button class=\'tab\' onclick=\'abrirDisparo()\' style=\'background:var(--org);color:#fff;padding:6px 14px\'>Cobrar (${cobrarCount})</button></div></div>${list.length?rows:empty}`;
 }
 
 function openFinParcela(pid){
@@ -1792,7 +1794,7 @@ function abrirProximoWA(){
     '<div style="font-size:12px;color:var(--gray);margin-bottom:20px">'+escH(it.prod)+' · '+it.val+'</div>'+
     '<a href="'+waUrl+'" onclick="setTimeout(function(){window._filaIdx++;abrirProximoWA();},1500)" class="btn btn-pri" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px;text-decoration:none;background:#25D366;font-size:16px">'+
     '&#x1F4F2; Enviar para '+escH(it.nome)+'</a>'+
-    (ultimo?'':'<button class="btn btn-sec" onclick="window._filaIdx++;abrirProximoWA()">Pular este &#x27A1;</button>')+
+    '<button class="btn btn-sec" onclick="window._filaIdx++;abrirProximoWA()">'+(ultimo?'&#x2705; Concluído':'Pular este &#x27A1;')+'</button>'+
     '</div></div>';
   var ex=document.getElementById('moFila');
   if(ex)ex.outerHTML=html;else document.body.insertAdjacentHTML('beforeend',html);
