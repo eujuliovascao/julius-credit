@@ -475,6 +475,15 @@ async function delCliente(id){
 
 async function updCliente(id,d){await supa.from('clientes').update(d).eq('id',id);const i=clientes.findIndex(c=>c.id===id);if(i>=0)clientes[i]={...clientes[i],...d};}
 async function addProduto(d){const o={id:genId(),custo:0,user_id:currentUser?.id,...d};await supa.from('produtos').insert(o);produtos.push(o);return o;}
+
+async function excluirProduto(id, nome){
+  if(!confirm('Excluir o produto "'+nome+'"?\nAs vendas existentes não serão afetadas.'))return;
+  await supa.from('produtos').delete().eq('id',id);
+  produtos=produtos.filter(function(p){return p.id!==id;});
+  renderScreen();
+  toast('Produto excluído!');
+}
+
 async function updProduto(id,d){await supa.from('produtos').update(d).eq('id',id);const i=produtos.findIndex(p=>p.id===id);if(i>=0)produtos[i]={...produtos[i],...d};}
 async function addVenda(d){d.user_id=currentUser?.id;await supa.from('vendas').insert(d);vendas.unshift(d);}
 async function addParcela(d){await supa.from('parcelas').insert(d);parcelas.push(d);return d;}
@@ -646,7 +655,7 @@ function renderClientes(){
 // ── PRODUTOS ────────────────────────────────────────────
 function renderProdutos(){
   let rows='';
-  [...produtos].sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(p=>{rows+=`<div class="litem"><div><div class="lname">${escH(p.nome)}</div><div class="lsub">Custo: ${fmt(p.custo||0)} · Margem: ${fmt((p.preco||0)-(p.custo||0))}</div></div><div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div class="lval">${fmt(p.preco)}</div><button class="edit-btn" onclick="event.stopPropagation();modEditProd('${p.id}')">&#x270E;</button></div></div>`;});
+  [...produtos].sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(p=>{rows+=`<div class="litem"><div style="flex:1"><div class="lname">${escH(p.nome)}</div><div class="lsub">Custo: ${fmt(p.custo||0)} · Margem: ${fmt((p.preco||0)-(p.custo||0))}</div></div><div style="display:flex;align-items:center;gap:8px"><div class="lval">${fmt(p.preco)}</div><button class="edit-btn" onclick="event.stopPropagation();modEditProd('${p.id}')">&#x270E;</button><button class="edit-btn" style="color:var(--red)" onclick="event.stopPropagation();excluirProduto('${p.id}','${escH(p.nome)}')">&#x1F5D1;</button></div></div>`;});
   return `${rows?`<div class="lwrap">${rows}</div>`:`<div class="card"><div class="empty"><div class="empty-ic">&#x1F4E6;</div><div class="empty-tx">Nenhum produto</div></div></div>`}<button class="fab" onclick="modNewProd()">+</button>`;
 }
 
