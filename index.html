@@ -145,8 +145,8 @@ html,body{height:100%;background:#f0f2f5;font-family:'Poppins',sans-serif;color:
 .eye-btn{background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;}
 #rcWrap{position:fixed;left:-9999px;top:-9999px;width:380px;background:#fff;padding:24px;font-family:Courier New,monospace;font-size:12px;line-height:1.7;color:#000;}
 
-#loginScreen{position:fixed;inset:0;background:linear-gradient(135deg,#FF6B00,#FF8C42);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;padding:24px;}
-.login-card{background:#fff;border-radius:22px;padding:28px 22px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.2);}
+#loginScreen{position:fixed;inset:0;background:linear-gradient(135deg,#FF6B00,#FF8C42);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;z-index:9999;padding:24px;overflow-y:auto;}
+.login-card{background:#fff;border-radius:22px;padding:28px 22px;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.2);margin:auto 0;}
 .login-logo{font-size:48px;text-align:center;margin-bottom:8px;}
 .login-title{font-size:22px;font-weight:700;text-align:center;color:#1a1a2e;margin-bottom:4px;}
 .login-sub{font-size:12px;text-align:center;color:var(--gray);margin-bottom:22px;}
@@ -257,6 +257,15 @@ const escH = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').repla
 const toast = msg => { const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2500); };
 const fmtPhone = raw => { const d=raw.replace(/\D/g,'').replace(/^55/,''); if(d.length===11) return '+55 '+d.slice(0,2)+' '+d.slice(2,7)+'-'+d.slice(7); if(d.length===10) return '+55 '+d.slice(0,2)+' '+d.slice(2,6)+'-'+d.slice(6); return raw; };
 const savePhone = raw => { const d=raw.replace(/\D/g,''); if(d.startsWith('55')&&d.length>=12) return '+'+d; if(d.length>=10) return '+55'+d; return raw; };
+function fmtWhats(inp){
+  var d=inp.value.replace(/\D/g,'');
+  if(d.length===0){inp.value='';return;}
+  var s='(';
+  if(d.length>=2)s='('+d.slice(0,2)+') ';
+  if(d.length>2)s+=(d.length<=6?d.slice(2):d.slice(2,7));
+  if(d.length>7)s+='-'+d.slice(7,11);
+  inp.value=s;
+}
 
 let clientes=[], produtos=[], vendas=[], parcelas=[];
 
@@ -321,7 +330,7 @@ function renderLoginScreen(){
     '<button class="login-tab '+(!isLogin?'active':'')+'" onclick="LOGIN_TAB=\'cadastro\';renderLoginScreen()">Cadastrar</button>'+
     '</div>'+
     (!isLogin?'<div class="trial-badge">&#x1F381; 30 dias grátis para novos usuários!</div>':'')+
-    (!isLogin?'<div class="fg"><label class="flabel">Nome</label><input class="finput" id="lgNome" placeholder="Seu nome"></div>':'')+(!isLogin?'<div class="fg"><label class="flabel">WhatsApp</label><input class="finput" id="lgWhats" type="tel" placeholder="+55 19 99999-9999"></div>':'')+
+    (!isLogin?'<div class="fg"><label class="flabel">Nome</label><input class="finput" id="lgNome" placeholder="Seu nome"></div>':'')+(!isLogin?'<div class="fg"><label class="flabel">WhatsApp</label><input class="finput" id="lgWhats" type="tel" placeholder="(19) 99999-9999" oninput="fmtWhats(this)"></div>':'')+
     '<div class="fg"><label class="flabel">Email</label><input class="finput" id="lgEmail" type="email" placeholder="seu@email.com" autocomplete="email"></div>'+
     '<div class="fg"><label class="flabel">Senha</label><input class="finput" id="lgSenha" type="password" placeholder="Mínimo 6 caracteres" autocomplete="'+(isLogin?'current-password':'new-password')+'"></div>'+
     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">'+
@@ -941,7 +950,7 @@ function renderEmpresa(){
   return '<div class="card">'+
     '<div class="fg"><label class="flabel">Nome da empresa</label><input class="finput" id="empNome" value="'+escH(u.empresa_nome||'')+'" placeholder="Ex: Julius Digital"></div>'+
     '<div class="fg"><label class="flabel">CNPJ</label><input class="finput" id="empCnpj" value="'+escH(u.empresa_cnpj||'')+'" placeholder="00.000.000/0000-00"></div>'+
-    '<div class="fg"><label class="flabel">Telefone</label><input class="finput" id="empTel" type="tel" value="'+escH(u.empresa_tel||'')+'" placeholder="+55 19 99999-9999"></div>'+
+    '<div class="fg"><label class="flabel">Telefone</label><input class="finput" id="empTel" type="tel" value="'+escH(u.empresa_tel||'')+'" placeholder="(19) 99999-9999" oninput="fmtWhats(this)"></div>'+
     '<div class="fg"><label class="flabel">Endereco</label><input class="finput" id="empEnd" value="'+escH(u.empresa_end||'')+'" placeholder="Rua, numero, cidade"></div>'+
     '<button class="btn btn-pri" onclick="salvarEmpresa()">Salvar</button></div>';
 }
@@ -1586,7 +1595,7 @@ function modNCliWiz(){
   html+='<button class="mclose" onclick="closeModal(\'moCWN\')">&#x2715;</button>';
   html+='<div class="mtit">Novo Cliente</div>';
   html+='<div class="fg"><label class="flabel">Nome *</label><input class="finput" id="wcNome"></div>';
-  html+='<div class="fg"><label class="flabel">WhatsApp</label><input class="finput" id="wcTel" type="tel" placeholder="+55 19 99999-9999"></div>';
+  html+='<div class="fg"><label class="flabel">WhatsApp</label><input class="finput" id="wcTel" type="tel" placeholder="(19) 99999-9999" oninput="fmtWhats(this)"></div>';
   html+='<button class="btn btn-pri" onclick="savWCli()">Salvar</button>';
   html+='</div></div>';
   document.body.insertAdjacentHTML('beforeend',html);
