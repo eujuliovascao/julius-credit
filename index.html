@@ -321,7 +321,7 @@ function renderLoginScreen(){
     '<button class="login-tab '+(!isLogin?'active':'')+'" onclick="LOGIN_TAB=\'cadastro\';renderLoginScreen()">Cadastrar</button>'+
     '</div>'+
     (!isLogin?'<div class="trial-badge">&#x1F381; 30 dias grátis para novos usuários!</div>':'')+
-    (!isLogin?'<div class="fg"><label class="flabel">Nome</label><input class="finput" id="lgNome" placeholder="Seu nome"></div>':'')+
+    (!isLogin?'<div class="fg"><label class="flabel">Nome</label><input class="finput" id="lgNome" placeholder="Seu nome"></div>':'')+(!isLogin?'<div class="fg"><label class="flabel">WhatsApp</label><input class="finput" id="lgWhats" type="tel" placeholder="+55 19 99999-9999"></div>':'')+
     '<div class="fg"><label class="flabel">Email</label><input class="finput" id="lgEmail" type="email" placeholder="seu@email.com" autocomplete="email"></div>'+
     '<div class="fg"><label class="flabel">Senha</label><input class="finput" id="lgSenha" type="password" placeholder="Mínimo 6 caracteres" autocomplete="'+(isLogin?'current-password':'new-password')+'"></div>'+
     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">'+
@@ -583,36 +583,23 @@ function editarVenda(id){
 
 function modEditarVenda(id){
   var v=vendas.find(function(x){return x.id===id;});if(!v)return;
-  var optsC='';
-  clientes.forEach(function(cl){
-    optsC+='<option value="'+cl.id+'"'+(cl.id===v.clienteid?' selected':'')+'>'+escH(cl.nome)+'</option>';
-  });
-  document.body.insertAdjacentHTML('beforeend',
-    '<div class="moverlay" id="moEV" onclick="if(event.target===this)closeModal(\'moEV\')">'+
-    '<div class="modal">'+
-    '<button class="mclose" onclick="closeModal(\'moEV\')">&#x2715;</button>'+
-    '<div class="mtit">&#x270E; Editar Venda #'+v.numero+'</div>'+
-    '<div class="fg"><label class="flabel">Cliente</label>'+
-    '<select class="finput" id="evCliente">'+optsC+'</select></div>'+
-    '<div class="fg"><label class="flabel">Produto / Descrição</label>'+
-    '<input class="finput" id="evProduto" value="'+escH(v.produto||'')+'"></div>'+
-    '<div class="fg"><label class="flabel">Valor total (R$)</label>'+
-    '<input class="finput" id="evTotal" type="number" min="0" step="0.01" value="'+(v.total||0)+'"></div>'+
-    '<div style="background:#FFF3EB;border-radius:10px;padding:10px;font-size:11px;color:var(--org);margin-bottom:14px">'+
-    '&#x2139;&#xFE0F; Alterar o valor total não muda os valores individuais das parcelas.</div>'+
-    '<button class="btn btn-pri" onclick="salvarEdicaoVenda(\''+id+'\')">Salvar</button>'+
-    '</div></div>');
-}
-async function salvarEdicaoVenda(id){
-  var cliId=el('evCliente')&&el('evCliente').value;
-  var prod=(el('evProduto')&&el('evProduto').value||'').trim();
-  var total=parseFloat(el('evTotal')&&el('evTotal').value);
-  if(!cliId||!prod||isNaN(total)){alert('Preencha todos os campos');return;}
-  var upd={clienteid:cliId,produto:prod,total:total};
-  await supa.from('vendas').update(upd).eq('id',id);
-  var i=vendas.findIndex(function(v){return v.id===id;});
-  if(i>=0)vendas[i]=Object.assign({},vendas[i],upd);
-  closeModal('moEV');renderScreen();toast('Venda atualizada!');
+  var cli=clientes.find(function(c){return c.id===v.clienteid;});
+  var prod=produtos.find(function(p){return p.nome===v.produto;});
+  var pv=parcelas.filter(function(p){return p.vendaid===id;}).sort(function(a,b){return a.numero-b.numero;});
+  var forma=(pv[0]&&pv[0].pagamento)||'Pix';
+  wiz={
+    step:1,
+    editandoId:id,
+    cliente:cli?{id:cli.id,nome:cli.nome}:null,
+    produto:prod?{id:prod.id,nome:prod.nome,custo:prod.custo||0}:{id:null,nome:v.produto,custo:0},
+    preco:String(v.preco||(v.total/(v.qtd||1))||v.total),
+    qtd:v.qtd||1,
+    forma:forma,
+    nParc:pv.length||1,
+    dataInicio:todayStr(),
+    prazo:'mensal'
+  };
+  nav('nova-venda');
 }
 
 function duplicarVenda(id){
@@ -1541,7 +1528,7 @@ async function saveEP(id){const n=el('epNome')?.value?.trim();if(!n){alert('Info
 // ── WIZARD ──────────────────────────────────────────────
 function startWiz(){wiz={step:1,cliente:null,produto:null,preco:'',qtd:1,forma:'Pix',nParc:1,dataInicio:todayStr(),prazo:'mensal',editandoId:null};nav('nova-venda');}
 function getWV(){const p=el('wPreco'),q=el('wQtd'),n=el('wParc');if(p)wiz.preco=p.value;if(q)wiz.qtd=Math.max(1,parseInt(q.value)||1);if(n)wiz.nParc=Math.max(1,parseInt(n.value)||1);}
-function renderWiz(){const dots=[1,2,3].map(s=>`<div class="step-dot" style="width:${s===wiz.step?32:8}px;background:${s===wiz.step?'var(--org)':s<wiz.step?'var(--grn)':'var(--bdr)'}"></div>`).join('');return `<div class="steps">${dots}</div>${wiz.step===1?renderW1():wiz.step===2?renderW2():renderW3()}`;}
+function renderWiz(){const dots=[1,2,3].map(s=>`<div class="step-dot" style="width:${s===wiz.step?32:8}px;background:${s===wiz.step?'var(--org)':s<wiz.step?'var(--grn)':'var(--bdr)'}"></div>`).join('');var tit=wiz.editandoId?'<div style="text-align:center;font-weight:700;color:var(--org);font-size:13px;margin-bottom:4px">&#x270E; Editando venda</div>':'';return tit+`<div class="steps">${dots}</div>${wiz.step===1?renderW1():wiz.step===2?renderW2():renderW3()}`;}
 function renderW1(){
   const FORMAS=['Pix','Dinheiro','Cartao','Boleto','Fiado'];
   const PRAZOS=[{k:'mensal',l:'Mensal'},{k:'quinzenal',l:'Quinzenal'},{k:'semanal',l:'Semanal'},{k:'30dias',l:'30 em 30'}];
