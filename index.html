@@ -520,16 +520,16 @@ async function delVenda(id){await supa.from('parcelas').delete().eq('vendaid',id
 
 // ── NAV ─────────────────────────────────────────────────
 function updBadge(){const t=todayStr();const c=parcelas.filter(p=>!p.pago&&p.vencimento<=t).length;const b=el('finBadge');if(b){b.style.display=c>0?'block':'none';b.textContent=c;}}
-function nav(s,p2){screen=s;if(p2!==undefined)param=p2;const titles={home:'AgiVendas',vendas:'Vendas',financeiro:'Financeiro',clientes:'Clientes',produtos:'Produtos',relatorios:'Relatorios',mais:'Mais','nova-venda':'Nova Venda','venda-detail':'Detalhes da Venda','venda-parcelas':'Parcelas',configuracoes:'Configurações',conta:'Conta',empresa:'Empresa','meu-plano':'Meu Plano',gestor:'Gestor'};el('hdrTitle').textContent=titles[s]||'AgiVendas';const hasBack=['nova-venda','venda-detail','venda-parcelas','produtos','relatorios','configuracoes','conta','empresa','meu-plano','gestor'].includes(s);el('btnBack').style.display=hasBack?'flex':'none';el('bnav').style.display=['nova-venda','venda-detail','venda-parcelas'].includes(s)?'none':'flex';el('hdrRight').innerHTML=s==='home'?'<button class="eye-btn" onclick="togglePrivacy()">'+eyeSVG()+'</button>':'';['home','vendas','financeiro','clientes','mais'].forEach(x=>{const n=el('nav-'+x);if(n)n.classList.toggle('active',x===s||(x==='mais'&&['produtos','relatorios','mais'].includes(s)));});updBadge();
+function nav(s,p2){screen=s;if(p2!==undefined)param=p2;const titles={home:'AgiVendas',vendas:'Vendas',financeiro:'Financeiro',clientes:'Clientes',produtos:'Produtos',relatorios:'Relatorios',mais:'Mais','nova-venda':'Nova Venda','venda-detail':'Detalhes da Venda','venda-parcelas':'Parcelas',configuracoes:'Configurações',conta:'Conta',empresa:'Empresa',cobrancas:'Cobranças','\'meu-plano\'':'Meu Plano',gestor:'Gestor'};el('hdrTitle').textContent=titles[s]||'AgiVendas';const hasBack=['nova-venda','venda-detail','venda-parcelas','produtos','relatorios','configuracoes','conta','empresa','cobrancas','meu-plano','gestor'].includes(s);el('btnBack').style.display=hasBack?'flex':'none';el('bnav').style.display=['nova-venda','venda-detail','venda-parcelas'].includes(s)?'none':'flex';el('hdrRight').innerHTML=s==='home'?'<button class="eye-btn" onclick="togglePrivacy()">'+eyeSVG()+'</button>':'';['home','vendas','financeiro','clientes','mais'].forEach(x=>{const n=el('nav-'+x);if(n)n.classList.toggle('active',x===s||(x==='mais'&&['produtos','relatorios','mais'].includes(s)));});updBadge();
   var fs=el('fixedSalvar');if(fs)fs.style.display=(s==='venda-parcelas'?'block':'none');
   pendingChanges={};
   renderScreen();}
-function goBack(){const b={produtos:'mais',relatorios:'mais','venda-detail':'vendas','venda-parcelas':'venda-detail','nova-venda':'vendas',configuracoes:'mais',conta:'configuracoes',empresa:'configuracoes','meu-plano':'mais',gestor:'mais'};nav(b[screen]||'home');}
+function goBack(){const b={produtos:'mais',relatorios:'mais','venda-detail':'vendas','venda-parcelas':'venda-detail','nova-venda':'vendas',configuracoes:'mais',conta:'configuracoes',empresa:'configuracoes',cobrancas:'configuracoes','meu-plano':'mais',gestor:'mais'};nav(b[screen]||'home');}
 function closeModal(id){const m=el(id);if(m)m.remove();}
 function renderScreen(){const c=el('content');if(!c)return;if(screen==='home')c.innerHTML=renderHome();else if(screen==='vendas')c.innerHTML=renderVendas();else if(screen==='financeiro')c.innerHTML=renderFin();else if(screen==='clientes')c.innerHTML=renderClientes();else if(screen==='produtos')c.innerHTML=renderProdutos();else if(screen==='relatorios')c.innerHTML=renderRelatorios();else if(screen==='mais')c.innerHTML=renderMais();else if(screen==='nova-venda')c.innerHTML=renderWiz();else if(screen==='venda-detail')c.innerHTML=renderDetail();else if(screen==='venda-parcelas')c.innerHTML=renderParcelas();
   else if(screen==='configuracoes')c.innerHTML=renderConfiguracoes();
   else if(screen==='conta')c.innerHTML=renderConta();
-  else if(screen==='empresa')c.innerHTML=renderEmpresa();
+  else if(screen==='empresa')c.innerHTML=renderEmpresa();else if(screen==='cobrancas')c.innerHTML=renderCobrancas();else if(screen==='cobrancas')c.innerHTML=renderCobrancas();
   else if(screen==='meu-plano')c.innerHTML=renderMeuPlano();
   else if(screen==='gestor'){c.innerHTML='<div class="empty"><div class="empty-ic">⏳</div></div>';renderGestorAsync();}}
 
@@ -642,7 +642,7 @@ function renderFin(){
     rows+='</div>';
   });
   const empty=`<div class="card"><div class="empty"><div class="empty-ic">${finTab==='atraso'?'&#x1F389;':'&#x2705;'}</div><div class="empty-tx">${finTab==='atraso'?'Sem atrasos!':'Nada a vencer!'}</div></div></div>`;
-  return `<div class="ohdr"><div class="olabel">${finTab==='atraso'?'Em Atraso':'A Vencer'}</div><div class="ototal">${fmt(total)}</div><div class="tabrow"><button class="tab ${finTab!=='atraso'?'on':''}" onclick="finTab='hoje';renderScreen()">A Vencer (${avencer.length})</button><button class="tab ${finTab==='atraso'?'on-red':''}" onclick="finTab='atraso';renderScreen()">Atraso (${atraso.length})</button></div></div>${list.length?rows:empty}`;
+  return `<div class="ohdr"><div class="olabel">${finTab==='atraso'?'Em Atraso':'A Vencer'}</div><div class="ototal">${fmt(total)}</div><div class="tabrow"><button class="tab ${finTab!=='atraso'?'on':''}" onclick="finTab='hoje';renderScreen()">A Vencer (${avencer.length})</button><button class="tab ${finTab==='atraso'?'on-red':''}" onclick="finTab='atraso';renderScreen()">Atraso (${atraso.length})</button><button class=\'tab\' onclick=\'abrirDisparo()\' style=\'background:var(--org);color:#fff;padding:6px 14px\'>&#x1F4F2;</button></div></div>${list.length?rows:empty}`;
 }
 
 function openFinParcela(pid){
@@ -890,7 +890,52 @@ function renderConfiguracoes(){
   return '<div class="menu-grid">'+
     '<button class="menu-card" onclick="nav(\'conta\')"><div class="menu-ic">&#x1F464;</div><div class="menu-label">Conta</div><div class="menu-sub">Senha e perfil</div></button>'+
     '<button class="menu-card" onclick="nav(\'empresa\')"><div class="menu-ic">&#x1F3E2;</div><div class="menu-label">Empresa</div><div class="menu-sub">Dados do negocio</div></button>'+
+    '<button class="menu-card" style="grid-column:1/-1" onclick="nav(\'cobrancas\')"><div class="menu-ic">&#x1F4F2;</div><div class="menu-label">Cobranças WhatsApp</div><div class="menu-sub">PIX e mensagens automáticas</div></button>'+
     '</div>';
+}
+
+
+// ── COBRANÇAS ─────────────────────────────────────────────────────────────────
+var MSG_HOJE_DEF="Olá *{nome}*! 👋\nSua parcela de *{produto}* ({parcela}) vence *hoje* no valor de *R$ {valor}*.\n\nPague via PIX 👇\n🔑 {pix}\n\nQualquer dúvida é só chamar! 😊";
+var MSG_AMANHA_DEF="Olá *{nome}*! 👋\nSua parcela de *{produto}* ({parcela}) vence *amanhã* no valor de *R$ {valor}*.\n\nPague via PIX 👇\n🔑 {pix}\n\nObrigado! 🙏";
+
+function renderCobrancas(){
+  var u=currentUser||{};
+  var mh=u.msg_hoje||MSG_HOJE_DEF;
+  var ma=u.msg_amanha||MSG_AMANHA_DEF;
+  var pix=u.pix_cobranca||'';
+  return '<div class="card" style="margin-bottom:12px">'+
+    '<div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--org)">&#x1F4B3; PIX para cobranças</div>'+
+    '<div class="fg"><label class="flabel">Sua chave PIX</label>'+
+    '<input class="finput" id="cbPix" value="'+escH(pix)+'" placeholder="Email, CPF, telefone ou chave aleatória"></div>'+
+    '<div style="background:var(--light);border-radius:10px;padding:10px;font-size:11px;color:var(--gray);margin-bottom:0">'+
+    'Esta chave aparecerá nas mensagens enviadas aos seus clientes.</div></div>'+
+    '<div class="card" style="margin-bottom:12px">'+
+    '<div style="font-size:13px;font-weight:700;margin-bottom:6px;color:var(--red)">📅 Mensagem — Vence Hoje</div>'+
+    '<div style="font-size:11px;color:var(--gray);margin-bottom:8px">Variáveis: <b>{nome}</b> {produto} {valor} {parcela} {pix}</div>'+
+    '<textarea class="finput" id="cbMsgHoje" rows="6" style="resize:vertical;font-size:13px;line-height:1.5">'+escH(mh)+'</textarea></div>'+
+    '<div class="card" style="margin-bottom:12px">'+
+    '<div style="font-size:13px;font-weight:700;margin-bottom:6px;color:var(--org)">📅 Mensagem — Vence Amanhã</div>'+
+    '<div style="font-size:11px;color:var(--gray);margin-bottom:8px">Variáveis: <b>{nome}</b> {produto} {valor} {parcela} {pix}</div>'+
+    '<textarea class="finput" id="cbMsgAmanha" rows="6" style="resize:vertical;font-size:13px;line-height:1.5">'+escH(ma)+'</textarea></div>'+
+    '<button class="btn btn-pri" onclick="salvarCobrancas()">Salvar configurações</button>';
+}
+async function salvarCobrancas(){
+  var upd={
+    pix_cobranca:el('cbPix')&&el('cbPix').value||'',
+    msg_hoje:el('cbMsgHoje')&&el('cbMsgHoje').value||MSG_HOJE_DEF,
+    msg_amanha:el('cbMsgAmanha')&&el('cbMsgAmanha').value||MSG_AMANHA_DEF
+  };
+  await supa.from('usuarios').update(upd).eq('id',currentUser.id);
+  Object.assign(currentUser,upd);salvarSessao(currentUser);toast('Configurações salvas!');
+}
+function buildMsg(tpl,nome,produto,valor,numParc,totParc,pix){
+  return tpl
+    .replace(/{nome}/g,nome)
+    .replace(/{produto}/g,produto)
+    .replace(/{valor}/g,valor)
+    .replace(/{parcela}/g,numParc+' de '+totParc)
+    .replace(/{pix}/g,pix||'(configure o PIX em Configurações → Cobranças)');
 }
 
 // ── CONTA ─────────────────────────────────────────────────────────────────────
@@ -1627,6 +1672,132 @@ async function savWProd(){const n=el('wpNome')?.value?.trim();if(!n){alert('Info
 
 
 // ── EXPORTAR CSV ────────────────────────────────────────────────────
+// ── COBRANÇAS ─────────────────────────────────────────────────────────────────
+var MSG_HOJE_DEF='Olá *{nome}*! 👋\nSua parcela de *{produto}* ({parcela}) vence *hoje* no valor de *R$ {valor}*.\n\nPague via PIX 👇\n🔑 {pix}\n\nQualquer dúvida é só chamar! 😊';
+var MSG_AMANHA_DEF='Olá *{nome}*! 👋\nSua parcela de *{produto}* ({parcela}) vence *amanhã* no valor de *R$ {valor}*.\n\nPague via PIX 👇\n🔑 {pix}\n\nObrigado! 🙏';
+
+function renderCobrancas(){
+  var u=currentUser||{};
+  var mh=u.msg_hoje||MSG_HOJE_DEF;
+  var ma=u.msg_amanha||MSG_AMANHA_DEF;
+  var pix=u.pix_cobranca||'';
+  return '<div class="card" style="margin-bottom:12px">'+
+    '<div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--org)">&#x1F4B3; PIX para cobranças</div>'+
+    '<div class="fg"><label class="flabel">Sua chave PIX</label>'+
+    '<input class="finput" id="cbPix" value="'+escH(pix)+'" placeholder="Email, CPF, telefone ou chave aleatória"></div>'+
+    '<div style="background:var(--light);border-radius:10px;padding:10px;font-size:11px;color:var(--gray);margin-bottom:0">Esta chave aparecerá nas mensagens enviadas aos seus clientes.</div></div>'+
+    '<div class="card" style="margin-bottom:12px">'+
+    '<div style="font-size:13px;font-weight:700;margin-bottom:6px;color:var(--red)">Mensagem Vence Hoje</div>'+
+    '<div style="font-size:11px;color:var(--gray);margin-bottom:8px">Variáveis: {nome} {produto} {valor} {parcela} {pix}</div>'+
+    '<textarea class="finput" id="cbMsgHoje" rows="6" style="resize:vertical;font-size:12px;line-height:1.5">'+escH(mh)+'</textarea></div>'+
+    '<div class="card" style="margin-bottom:12px">'+
+    '<div style="font-size:13px;font-weight:700;margin-bottom:6px;color:var(--org)">Mensagem Vence Amanhã</div>'+
+    '<div style="font-size:11px;color:var(--gray);margin-bottom:8px">Variáveis: {nome} {produto} {valor} {parcela} {pix}</div>'+
+    '<textarea class="finput" id="cbMsgAmanha" rows="6" style="resize:vertical;font-size:12px;line-height:1.5">'+escH(ma)+'</textarea></div>'+
+    '<button class="btn btn-pri" onclick="salvarCobrancas()">Salvar configurações</button>';
+}
+async function salvarCobrancas(){
+  var upd={pix_cobranca:el('cbPix')&&el('cbPix').value||'',msg_hoje:el('cbMsgHoje')&&el('cbMsgHoje').value||MSG_HOJE_DEF,msg_amanha:el('cbMsgAmanha')&&el('cbMsgAmanha').value||MSG_AMANHA_DEF};
+  await supa.from('usuarios').update(upd).eq('id',currentUser.id);
+  Object.assign(currentUser,upd);salvarSessao(currentUser);toast('Configurações salvas!');
+}
+function buildMsg(tpl,nome,produto,valor,numParc,totParc,pix){
+  return tpl.replace(/{nome}/g,nome).replace(/{produto}/g,produto).replace(/{valor}/g,valor).replace(/{parcela}/g,numParc+' de '+totParc).replace(/{pix}/g,pix||'(configure PIX em Configurações)');
+}
+function abrirDisparo(){
+  var t=todayStr();
+  var amanha=new Date();amanha.setDate(amanha.getDate()+1);
+  var amanhaStr=amanha.toISOString().slice(0,10);
+  var u=currentUser||{};
+  var pix=u.pix_cobranca||'';
+  var mh=u.msg_hoje||MSG_HOJE_DEF;
+  var ma=u.msg_amanha||MSG_AMANHA_DEF;
+  var hoje=parcelas.filter(function(p){return !p.pago&&p.vencimento===t;});
+  var amh=parcelas.filter(function(p){return !p.pago&&p.vencimento===amanhaStr;});
+  function buildItem(p,tipo){
+    var v=vendas.find(function(x){return x.id===p.vendaid;});
+    var cli=clientes.find(function(c){return c.id===(v&&v.clienteid);});
+    var tp=parcelas.filter(function(x){return x.vendaid===p.vendaid;}).length;
+    var tel=(cli&&cli.telefone)||'';
+    var nome=cli?cli.nome:'—';
+    var prod=v?v.produto:'';
+    var val=fmt(p.valor);
+    var tpl=tipo==='hoje'?mh:ma;
+    var msg=buildMsg(tpl,nome,prod,val,p.numero,tp,pix);
+    return {id:p.id,nome:nome,prod:prod,val:val,tel:tel,msg:msg,tipo:tipo};
+  }
+  var itens=hoje.map(function(p){return buildItem(p,'hoje');}).concat(amh.map(function(p){return buildItem(p,'amanha');}));
+  if(!itens.length){toast('Nenhum vencimento hoje ou amanhã!');return;}
+  var rows='';var lastTipo='';
+  itens.forEach(function(it,i){
+    if(it.tipo!==lastTipo){rows+='<div style="font-size:12px;font-weight:700;color:'+(it.tipo==='hoje'?'var(--red)':'var(--org)')+';padding:8px 0 4px">'+(it.tipo==='hoje'?'📅 Vence Hoje':'📅 Vence Amanhã')+'</div>';lastTipo=it.tipo;}
+    rows+='<label style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--light);border-radius:10px;margin-bottom:6px;cursor:pointer">'+
+      '<input type="checkbox" class="disp-chk" data-i="'+i+'" checked style="width:18px;height:18px;accent-color:var(--org)">'+
+      '<div style="flex:1"><div style="font-weight:700;font-size:13px">'+escH(it.nome)+'</div>'+
+      '<div style="font-size:11px;color:var(--gray)">'+escH(it.prod)+' · '+it.val+(it.tel?'':' · <b style="color:var(--red)">sem telefone</b>')+'</div></div></label>';
+  });
+  window._disparoItens=itens;
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="moverlay" id="moDisp" onclick="if(event.target===this)closeModal(\'moDisp\')">'+
+    '<div class="modal">'+
+    '<button class="mclose" onclick="closeModal(\'moDisp\')">&#x2715;</button>'+
+    '<div class="mtit">&#x1F4F2; Disparar Cobranças</div>'+
+    (!pix?'<div style="background:#FEE2E2;border-radius:10px;padding:10px;font-size:12px;color:var(--red);margin-bottom:12px">⚠️ Configure o PIX em Configurações → Cobranças.</div>':'')+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'+
+    '<span style="font-size:13px;color:var(--gray)">'+itens.length+' cliente(s)</span>'+
+    '<button onclick="toggleTodos()" style="background:none;border:none;color:var(--org);font-weight:700;cursor:pointer;font-size:13px">&#x2705; Selecionar todos</button></div>'+
+    '<div style="max-height:300px;overflow-y:auto">'+rows+'</div>'+
+    '<button class="btn btn-pri" style="margin-top:14px" onclick="iniciarFila()">&#x1F4AC; Enviar selecionados</button>'+
+    '</div></div>');
+}
+function toggleTodos(){
+  var chks=document.querySelectorAll('.disp-chk');
+  var todos=Array.from(chks).every(function(c){return c.checked;});
+  chks.forEach(function(c){c.checked=!todos;});
+}
+function iniciarFila(){
+  var chks=document.querySelectorAll('.disp-chk');
+  var sel=[];
+  chks.forEach(function(c){if(c.checked)sel.push(window._disparoItens[parseInt(c.dataset.i)]);});
+  if(!sel.length){toast('Selecione ao menos um cliente');return;}
+  var comTel=sel.filter(function(x){return x.tel;});
+  var semTel=sel.filter(function(x){return !x.tel;}).length;
+  if(!comTel.length){toast('Nenhum cliente tem telefone cadastrado');return;}
+  closeModal('moDisp');
+  window._filaDisparo=comTel;
+  window._filaIdx=0;
+  window._semTel=semTel;
+  abrirProximoWA();
+}
+function abrirProximoWA(){
+  var fila=window._filaDisparo;
+  var idx=window._filaIdx;
+  var semTel=window._semTel||0;
+  if(idx>=fila.length){
+    var m=document.getElementById('moFila');if(m)m.remove();
+    toast('✅ '+fila.length+' WhatsApps abertos!');return;
+  }
+  var it=fila[idx];
+  var total=fila.length;
+  var tel=it.tel.replace(/\D/g,'');
+  var waUrl='https://wa.me/'+tel+'?text='+encodeURIComponent(it.msg);
+  var ultimo=idx+1>=total;
+  var html='<div class="moverlay" id="moFila"><div class="modal">'+
+    '<div style="text-align:center;margin-bottom:14px">'+
+    '<div style="font-size:12px;color:var(--gray)">'+(idx+1)+' de '+total+(semTel?' · '+semTel+' sem telefone':'')+'</div>'+
+    '<div style="background:var(--light);border-radius:8px;height:6px;margin:8px 0">'+
+    '<div style="background:var(--org);height:6px;border-radius:8px;width:'+((idx+1)/total*100)+'%"></div></div></div>'+
+    '<div style="background:var(--light);border-radius:12px;padding:14px;margin-bottom:14px">'+
+    '<div style="font-weight:700;font-size:15px">'+escH(it.nome)+'</div>'+
+    '<div style="font-size:12px;color:var(--gray);margin-top:2px">'+escH(it.prod)+' · '+it.val+'</div></div>'+
+    '<a href="'+waUrl+'" target="_blank" class="btn btn-pri" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;text-decoration:none;background:#25D366">&#x1F4AC; Abrir WhatsApp</a>'+
+    '<button class="btn btn-sec" onclick="window._filaIdx++;abrirProximoWA()">'+(ultimo?'&#x2705; Concluído':'Próximo &#x2192;')+'</button>'+
+    '</div></div>';
+  var ex=document.getElementById('moFila');
+  if(ex)ex.outerHTML=html;else document.body.insertAdjacentHTML('beforeend',html);
+  window.open(waUrl,'_blank');
+}
+
 function exportarCSV(){
   var header='Num,Data,Cliente,Produto,Total,Recebido,Pendente,Parcelas,Em Atraso';
   var linhas=[header];
