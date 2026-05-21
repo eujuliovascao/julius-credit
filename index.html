@@ -280,7 +280,7 @@ function hashSenha(s){
 function salvarSessao(u,manter){
   currentUser=u;
   try{
-    var dados={id:u.id,nome:u.nome,email:u.email,admin:u.admin,trial_ate:u.trial_ate,ts:Date.now(),manter:manter};
+    var dados={id:u.id,nome:u.nome,email:u.email,admin:u.admin,trial_ate:u.trial_ate,pix_cobranca:u.pix_cobranca||'',msg_hoje:u.msg_hoje||'',msg_amanha:u.msg_amanha||'',whatsapp:u.whatsapp||'',empresa_nome:u.empresa_nome||'',empresa_tel:u.empresa_tel||'',ts:Date.now(),manter:manter};
     localStorage.setItem('jc_user',JSON.stringify(dados));
   }catch(e){}
 }
@@ -1775,27 +1775,27 @@ function abrirProximoWA(){
   var semTel=window._semTel||0;
   if(idx>=fila.length){
     var m=document.getElementById('moFila');if(m)m.remove();
-    toast('✅ '+fila.length+' WhatsApps abertos!');return;
+    toast('\u2705 '+fila.length+' mensagens enviadas!');return;
   }
   var it=fila[idx];
   var total=fila.length;
   var tel=it.tel.replace(/\D/g,'');
   var waUrl='https://wa.me/'+tel+'?text='+encodeURIComponent(it.msg);
   var ultimo=idx+1>=total;
-  var html='<div class="moverlay" id="moFila"><div class="modal">'+
-    '<div style="text-align:center;margin-bottom:14px">'+
-    '<div style="font-size:12px;color:var(--gray)">'+(idx+1)+' de '+total+(semTel?' · '+semTel+' sem telefone':'')+'</div>'+
-    '<div style="background:var(--light);border-radius:8px;height:6px;margin:8px 0">'+
-    '<div style="background:var(--org);height:6px;border-radius:8px;width:'+((idx+1)/total*100)+'%"></div></div></div>'+
-    '<div style="background:var(--light);border-radius:12px;padding:14px;margin-bottom:14px">'+
-    '<div style="font-weight:700;font-size:15px">'+escH(it.nome)+'</div>'+
-    '<div style="font-size:12px;color:var(--gray);margin-top:2px">'+escH(it.prod)+' · '+it.val+'</div></div>'+
-    '<a href="'+waUrl+'" target="_blank" class="btn btn-pri" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;text-decoration:none;background:#25D366">&#x1F4AC; Abrir WhatsApp</a>'+
-    '<button class="btn btn-sec" onclick="window._filaIdx++;abrirProximoWA()">'+(ultimo?'&#x2705; Concluído':'Próximo &#x2192;')+'</button>'+
+  var pct=Math.round((idx+1)/total*100);
+  var html='<div class="moverlay" id="moFila"><div class="modal" style="text-align:center">'+
+    '<div style="font-size:12px;color:var(--gray);margin-bottom:6px">'+(idx+1)+' de '+total+(semTel?' · '+semTel+' sem tel.':'')+'</div>'+
+    '<div style="background:var(--light);border-radius:8px;height:8px;margin-bottom:16px">'+
+    '<div style="background:var(--org);height:8px;border-radius:8px;width:'+pct+'%;transition:width .3s"></div></div>'+
+    '<div style="font-size:22px;margin-bottom:6px">&#x1F4AC;</div>'+
+    '<div style="font-weight:700;font-size:17px;margin-bottom:4px">'+escH(it.nome)+'</div>'+
+    '<div style="font-size:12px;color:var(--gray);margin-bottom:20px">'+escH(it.prod)+' · '+it.val+'</div>'+
+    '<a href="'+waUrl+'" onclick="setTimeout(function(){window._filaIdx++;abrirProximoWA();},1500)" class="btn btn-pri" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px;text-decoration:none;background:#25D366;font-size:16px">'+
+    '&#x1F4F2; Enviar para '+escH(it.nome)+'</a>'+
+    (ultimo?'':'<button class="btn btn-sec" onclick="window._filaIdx++;abrirProximoWA()">Pular este &#x27A1;</button>')+
     '</div></div>';
   var ex=document.getElementById('moFila');
   if(ex)ex.outerHTML=html;else document.body.insertAdjacentHTML('beforeend',html);
-  window.open(waUrl,'_blank');
 }
 
 function exportarCSV(){
