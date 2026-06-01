@@ -250,7 +250,13 @@ const nowStr = () => new Date().toISOString().replace('T',' ').slice(0,19);
 const fmtDate = d => { if(!d) return ''; const p=d.slice(0,10).split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
 const fmtDateTime = d => { if(!d) return ''; return fmtDate(d)+' '+d.slice(11,16); };
 const genId = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-const addMonths = (d,n) => { const dt=new Date(d); dt.setMonth(dt.getMonth()+n); return dt.toISOString().slice(0,10); };
+const addMonths = (d,n) => {
+  const [y,m,day]=d.split('-').map(Number);
+  let nm=m+n, ny=y+Math.floor((nm-1)/12);
+  nm=((nm-1)%12)+1;
+  const maxDay=new Date(ny,nm,0).getDate();
+  return `${ny}-${String(nm).padStart(2,'0')}-${String(Math.min(day,maxDay)).padStart(2,'0')}`;
+};
 const addDays = (d,n) => { const dt=new Date(d); dt.setDate(dt.getDate()+n); return dt.toISOString().slice(0,10); };
 const el = id => document.getElementById(id);
 const escH = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -616,7 +622,7 @@ function duplicarVenda(id){
   const cli=clientes.find(c=>c.id===v.clienteid);
   const vp=parcelas.filter(p=>p.vendaid===id).sort((a,b)=>a.numero-b.numero);
   // Pre-fill wizard for editing
-  wiz={step:1,cliente:cli||null,produto:{id:null,nome:v.produto,custo:v.custo||0},preco:String(v.preco||v.total),qtd:v.qtd||1,forma:vp[0]?.pagamento||'Pix',nParc:vp.length||1,dataInicio:todayStr(),prazo:'mensal',editandoId:null};
+  wiz={step:1,cliente:cli||null,produto:{id:null,nome:v.produto,custo:v.custo||0},preco:String(v.preco||v.total),qtd:v.qtd||1,forma:vp[0]?.pagamento||'Pix',nParc:vp.length||1,dataInicio:vp[0]?vp[0].vencimento:todayStr(),prazo:'mensal',editandoId:null};
   nav('nova-venda');
   toast('Edite os dados e finalize para duplicar');
 }
@@ -644,7 +650,8 @@ function renderFin(){
     rows+='</div>';
   });
   const empty=`<div class="card"><div class="empty"><div class="empty-ic">${finTab==='atraso'?'&#x1F389;':'&#x2705;'}</div><div class="empty-tx">${finTab==='atraso'?'Sem atrasos!':'Nada a vencer!'}</div></div></div>`;
-  return `<div class="ohdr"><div class="olabel">${finTab==='atraso'?'Em Atraso':'A Vencer'}</div><div class="ototal">${fmt(total)}</div><div class="tabrow"><button class="tab ${finTab!=='atraso'?'on':''}" onclick="finTab='hoje';renderScreen()">A Vencer (${avencer.length})</button><button class="tab ${finTab==='atraso'?'on-red':''}" onclick="finTab='atraso';renderScreen()">Atraso (${atraso.length})</button><button class=\'tab\' onclick=\'abrirDisparo()\' style=\'background:var(--org);color:#fff;padding:6px 14px\'>Cobrar (${cobrarCount})</button></div></div>${list.length?rows:empty}`;
+  const cardCobrar=cobrarCount>0?`<div onclick="abrirDisparo()" style="margin:0 0 12px 0;background:#FFF3EB;border:1.5px solid var(--org);border-radius:14px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer"><div><div style="font-weight:700;font-size:14px;color:var(--org)">&#x1F4F2; Cobranças do dia</div><div style="font-size:12px;color:#666;margin-top:2px">${cobrarCount} vencimento${cobrarCount>1?'s':''} hoje e amanhã</div></div><div style="font-size:13px;font-weight:700;color:var(--org)">Enviar &#x2192;</div></div>`:'`'+'`';
+  return `<div class="ohdr"><div class="olabel">${finTab==='atraso'?'Em Atraso':'A Vencer'}</div><div class="ototal">${fmt(total)}</div><div class="tabrow"><button class="tab ${finTab!=='atraso'?'on':''}" onclick="finTab='hoje';renderScreen()">A Vencer (${avencer.length})</button><button class="tab ${finTab==='atraso'?'on-red':''}" onclick="finTab='atraso';renderScreen()">Atraso (${atraso.length})</button></div></div>${cardCobrar}<div class="srch"><span class="srch-ic">&#x1F50D;</span><input class="finput" placeholder="Buscar cliente..." oninput="srchF(this,'finlst')" style="padding-left:40px"></div>${list.length?`<div class="lwrap" id="finlst">${rows}</div>`:empty}`;
 }
 
 function openFinParcela(pid){
@@ -1123,8 +1130,10 @@ function modEditarDataParcela(pid){
     '<div style="background:var(--light);border-radius:12px;padding:12px;margin-bottom:14px;font-size:13px">'+
     'Parcela '+p.numero+' - Atual: <b>'+fmtDate(p.vencimento)+'</b></div>'+
     '<div class="fg"><label class="flabel">Nova data</label><input class="finput" id="edData" type="date" value="'+p.vencimento+'"></div>'+
+    '<div class="fg"><label class="flabel">Novo valor (R$) <span style="color:var(--gray);font-weight:400;font-size:11px">— opcional, para adicionar juros</span></label>'+
+    '<input class="finput" id="edValor" type="number" min="0" step="0.01" placeholder="'+p.valor+'" value="'+p.valor+'"></div>'+
     (proximas.length?'<div style="background:#FFF3EB;border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px">'+
-    '&#x2139;&#xFE0F; Ha <b>'+proximas.length+'</b> parcelas futuras. Deseja atualizar todas pela mesma diferenca de dias?</div>'+
+    '&#x2139;&#xFE0F; Ha <b>'+proximas.length+'</b> parcelas futuras. Deseja atualizar a data de todas pela mesma diferenca?</div>'+
     '<div class="btn-row">'+
     '<button class="btn btn-sec" onclick="salvarDataParcela(\''+pid+'\',false)">Só esta</button>'+
     '<button class="btn btn-pri" onclick="salvarDataParcela(\''+pid+'\',true)">Esta + proximas</button>'+
@@ -1135,9 +1144,10 @@ function modEditarDataParcela(pid){
 async function salvarDataParcela(pid,atualizarProximas){
   var p=parcelas.find(function(x){return x.id===pid;});if(!p)return;
   var novaData=el('edData')&&el('edData').value;if(!novaData){alert('Informe a data');return;}
+  var novoValor=parseFloat(el('edValor')&&el('edValor').value)||p.valor;
   var diffMs=new Date(novaData)-new Date(p.vencimento);
   var diffDias=Math.round(diffMs/86400000);
-  await updParcela(pid,{vencimento:novaData});
+  await updParcela(pid,{vencimento:novaData,valor:novoValor});
   if(atualizarProximas&&diffDias!==0){
     var proximas=parcelas.filter(function(x){return x.vendaid===p.vendaid&&x.numero>p.numero&&!x.pago;});
     for(var i=0;i<proximas.length;i++){
@@ -1570,6 +1580,7 @@ function perguntarWpp(pid){
 
 function confDel(id){document.body.insertAdjacentHTML('beforeend',`<div class="moverlay" id="moDel" onclick="if(event.target===this)closeModal('moDel')"><div class="modal"><div class="mtit">Excluir venda?</div><p style="text-align:center;font-size:13px;color:var(--gray);margin-bottom:18px">Exclui a venda e todas as parcelas.</p><div class="btn-row"><button class="btn btn-sec" onclick="closeModal('moDel')">Cancelar</button><button class="btn btn-danger" onclick="delVenda('${id}').then(()=>closeModal('moDel'))">Excluir</button></div></div></div>`);}
 function srch(inp,lid){const q=inp.value.toLowerCase();document.querySelectorAll('#'+lid+' .litem').forEach(i=>i.style.display=i.textContent.toLowerCase().includes(q)?'':'none');}
+function srchF(inp,lid){const q=inp.value.toLowerCase();document.querySelectorAll('#'+lid+' .fitem').forEach(i=>i.style.display=i.textContent.toLowerCase().includes(q)?'':'none');}
 
 // ── MODAIS CADASTRO ──────────────────────────────────────
 function modNewCli(){document.body.insertAdjacentHTML('beforeend',`<div class="moverlay" id="moNC" onclick="if(event.target===this)closeModal('moNC')"><div class="modal"><button class="mclose" onclick="closeModal('moNC')">&#x2715;</button><div class="mtit">Novo Cliente</div><div class="fg"><label class="flabel">Nome *</label><input class="finput" id="ncNome" placeholder="Nome completo"></div><div class="fg"><label class="flabel">WhatsApp</label><input class="finput" id="ncTel" type="tel" placeholder="+55 19 99999-9999" oninput="this.value=fmtPhone(this.value)"></div><button class="btn btn-pri" onclick="savNC()">Salvar</button></div></div>`);}
