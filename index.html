@@ -245,8 +245,8 @@ html,body{height:100%;background:#f0f2f5;font-family:'Poppins',sans-serif;color:
 <script>
 const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 const fmt = v => 'R$ '+Number(v||0).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');
-const todayStr = () => new Date().toISOString().slice(0,10);
-const nowStr = () => new Date().toISOString().replace('T',' ').slice(0,19);
+const todayStr = () => {const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+const nowStr = () => {const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;};
 const fmtDate = d => { if(!d) return ''; const p=d.slice(0,10).split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
 const fmtDateTime = d => { if(!d) return ''; return fmtDate(d)+' '+d.slice(11,16); };
 const genId = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -257,7 +257,7 @@ const addMonths = (d,n) => {
   const maxDay=new Date(ny,nm,0).getDate();
   return `${ny}-${String(nm).padStart(2,'0')}-${String(Math.min(day,maxDay)).padStart(2,'0')}`;
 };
-const addDays = (d,n) => { const dt=new Date(d); dt.setDate(dt.getDate()+n); return dt.toISOString().slice(0,10); };
+const addDays = (d,n) => {const [y,m,day]=d.split('-').map(Number);const dt=new Date(y,m-1,day+n);return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;};
 const el = id => document.getElementById(id);
 const escH = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const toast = msg => { const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2500); };
@@ -377,7 +377,7 @@ async function fazerCadastro(){
   var chk=await supa.from('usuarios').select('id').eq('email',email);
   if(chk.data&&chk.data.length>0){alert('Este email já está cadastrado');if(btn)btn.disabled=false;return;}
   var trial=new Date();trial.setDate(trial.getDate()+30);
-  var novoUser={id:genId(),email:email,nome:nome,senha:hashSenha(senha),admin:false,trial_ate:trial.toISOString().slice(0,10),ativo:true};
+  var novoUser={id:genId(),email:email,nome:nome,whatsapp:whatsapp,senha:hashSenha(senha),admin:false,trial_ate:`${trial.getFullYear()}-${String(trial.getMonth()+1).padStart(2,'0')}-${String(trial.getDate()).padStart(2,'0')}`,ativo:true};
   var ins=await supa.from('usuarios').insert(novoUser);
   if(ins.error){alert('Erro ao cadastrar: '+ins.error.message);if(btn)btn.disabled=false;return;}
   salvarSessao(novoUser);
@@ -436,6 +436,7 @@ let homeFilter='mes', homeDe='', homeAte='';
 let vendasFilter='mes', vendasDe='', vendasAte='';
 let relMes=todayStr().slice(0,7);
 let wiz={step:1,cliente:null,produto:null,preco:'',qtd:1,forma:'Pix',nParc:1,dataInicio:todayStr(),prazo:'mensal',editandoId:null};
+var msgsProdutos=[];
 
 
 // ── PIX & CONFIG ──────────────────────────────────────────────────────────────
@@ -492,6 +493,8 @@ async function loadAll(){
   } else {
     parcelas=[];
   }
+  var rmp=await supa.from('msgs_produtos').select('*').eq('user_id',uid);
+  msgsProdutos=rmp.data||[];
 }
 async function addCliente(d){const o={id:genId(),user_id:currentUser?.id,...d};await supa.from('clientes').insert(o);clientes.push(o);return o;}
 async function delCliente(id){
@@ -630,7 +633,7 @@ function duplicarVenda(id){
 // ── FINANCEIRO ──────────────────────────────────────────
 function renderFin(){
   const t=todayStr();
-  const amanha=new Date();amanha.setDate(amanha.getDate()+1);const amanhaStr=amanha.toISOString().slice(0,10);
+  const amanha=new Date();amanha.setDate(amanha.getDate()+1);const amanhaStr=`${amanha.getFullYear()}-${String(amanha.getMonth()+1).padStart(2,'0')}-${String(amanha.getDate()).padStart(2,'0')}`;
   const cobrarCount=parcelas.filter(p=>!p.pago&&(p.vencimento===t||p.vencimento===amanhaStr)).length;
   const atraso=parcelas.filter(p=>p.vencimento<t&&!p.pago).sort((a,b)=>a.vencimento.localeCompare(b.vencimento));
   const avencer=parcelas.filter(p=>p.vencimento>=t&&!p.pago).sort((a,b)=>a.vencimento.localeCompare(b.vencimento));
@@ -913,801 +916,51 @@ function renderCobrancas(){
   var mh=u.msg_hoje||MSG_HOJE_DEF;
   var ma=u.msg_amanha||MSG_AMANHA_DEF;
   var pix=u.pix_cobranca||'';
-  return '<div class="card" style="margin-bottom:12px">'+
-    '<div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--org)">&#x1F4B3; PIX para cobranças</div>'+
-    '<div class="fg"><label class="flabel">Sua chave PIX</label>'+
-    '<input class="finput" id="cbPix" value="'+escH(pix)+'" placeholder="Email, CPF, telefone ou chave aleatória"></div>'+
-    '<div style="background:var(--light);border-radius:10px;padding:10px;font-size:11px;color:var(--gray);margin-bottom:0">'+
-    'Esta chave aparecerá nas mensagens enviadas aos seus clientes.</div></div>'+
-    '<div class="card" style="margin-bottom:12px">'+
-    '<div style="font-size:13px;font-weight:700;margin-bottom:6px;color:var(--red)">📅 Mensagem — Vence Hoje</div>'+
-    '<div style="font-size:11px;color:var(--gray);margin-bottom:8px">Variáveis: <b>{nome}</b> {produto} {valor} {parcela} {pix}</div>'+
-    '<textarea class="finput" id="cbMsgHoje" rows="6" style="resize:vertical;font-size:13px;line-height:1.5">'+escH(mh)+'</textarea></div>'+
-    '<div class="card" style="margin-bottom:12px">'+
-    '<div style="font-size:13px;font-weight:700;margin-bottom:6px;color:var(--org)">📅 Mensagem — Vence Amanhã</div>'+
-    '<div style="font-size:11px;color:var(--gray);margin-bottom:8px">Variáveis: <b>{nome}</b> {produto} {valor} {parcela} {pix}</div>'+
-    '<textarea class="finput" id="cbMsgAmanha" rows="6" style="resize:vertical;font-size:13px;line-height:1.5">'+escH(ma)+'</textarea></div>'+
-    '<button class="btn btn-pri" onclick="salvarCobrancas()">Salvar configurações</button>';
-}
-async function salvarCobrancas(){
-  var upd={
-    pix_cobranca:el('cbPix')&&el('cbPix').value||'',
-    msg_hoje:el('cbMsgHoje')&&el('cbMsgHoje').value||MSG_HOJE_DEF,
-    msg_amanha:el('cbMsgAmanha')&&el('cbMsgAmanha').value||MSG_AMANHA_DEF
-  };
-  await supa.from('usuarios').update(upd).eq('id',currentUser.id);
-  Object.assign(currentUser,upd);salvarSessao(currentUser);toast('Configurações salvas!');
-}
-function buildMsg(tpl,nome,produto,valor,numParc,totParc,pix){
-  return tpl
-    .replace(/{nome}/g,nome)
-    .replace(/{produto}/g,produto)
-    .replace(/{valor}/g,valor)
-    .replace(/{parcela}/g,numParc+' de '+totParc)
-    .replace(/{pix}/g,pix||'(configure o PIX em Configurações → Cobranças)');
-}
-
-// ── CONTA ─────────────────────────────────────────────────────────────────────
-function renderConta(){
-  var u=currentUser||{};
-  return '<div style="text-align:center;padding:20px 0">'+
-    '<div class="avatar">'+(u.nome?u.nome[0].toUpperCase():'?')+'</div>'+
-    '<div class="profile-name">'+escH(u.nome||'')+'</div>'+
-    '<div class="profile-email">'+escH(u.email||'')+'</div>'+
-    '</div>'+
-    '<div class="lwrap" style="margin-bottom:12px">'+
-    '<div class="litem cp" onclick="modAlterarSenha()"><div class="lname">Alterar senha</div></div>'+
-    '</div>'+
-    '<button class="btn btn-danger" style="width:100%" onclick="confExcluirConta()">Excluir conta</button>';
-}
-function modAlterarSenha(){
-  document.body.insertAdjacentHTML('beforeend',
-    '<div class="moverlay" id="moAS" onclick="if(event.target===this)closeModal(\'moAS\')">'+
-    '<div class="modal"><button class="mclose" onclick="closeModal(\'moAS\')">&#x2715;</button>'+
-    '<div class="mtit">Alterar Senha</div>'+
-    '<div class="fg"><label class="flabel">Senha atual</label><input class="finput" id="asSenhaAtual" type="password"></div>'+
-    '<div class="fg"><label class="flabel">Nova senha</label><input class="finput" id="asNovaSenha" type="password" placeholder="Minimo 6 caracteres"></div>'+
-    '<div class="fg"><label class="flabel">Confirmar nova senha</label><input class="finput" id="asConfirmar" type="password"></div>'+
-    '<button class="btn btn-pri" onclick="salvarNovaSenha()">Salvar</button></div></div>');
-}
-async function salvarNovaSenha(){
-  var atual=el('asSenhaAtual')&&el('asSenhaAtual').value||'';
-  var nova=el('asNovaSenha')&&el('asNovaSenha').value||'';
-  var conf=el('asConfirmar')&&el('asConfirmar').value||'';
-  if(!atual||!nova||!conf){alert('Preencha todos os campos');return;}
-  if(nova.length<6){alert('Nova senha deve ter ao menos 6 caracteres');return;}
-  if(nova!==conf){alert('As senhas nao coincidem');return;}
-  var res=await supa.from('usuarios').select('id').eq('id',currentUser.id).eq('senha',hashSenha(atual));
-  if(!res.data||!res.data.length){alert('Senha atual incorreta');return;}
-  await supa.from('usuarios').update({senha:hashSenha(nova)}).eq('id',currentUser.id);
-  closeModal('moAS');toast('Senha alterada!');
-}
-function confExcluirConta(){
-  showConfirm('Excluir conta?','Todos os seus dados serão apagados permanentemente.',function(){
-    excluirContaConfirmado();
-  });
-}
-async function excluirContaConfirmado(){
-  var uid=currentUser&&currentUser.id;
-  var vids=vendas.map(function(v){return v.id;});
-  if(vids.length)await supa.from('parcelas').delete().in('vendaid',vids);
-  await supa.from('vendas').delete().eq('user_id',uid);
-  await supa.from('clientes').delete().eq('user_id',uid);
-  await supa.from('produtos').delete().eq('user_id',uid);
-  await supa.from('usuarios').delete().eq('id',uid);
-  fazerLogout();
-}
-
-// ── EMPRESA ───────────────────────────────────────────────────────────────────
-function renderEmpresa(){
-  var u=currentUser||{};
-  return '<div class="card">'+
-    '<div class="fg"><label class="flabel">Nome da empresa</label><input class="finput" id="empNome" value="'+escH(u.empresa_nome||'')+'" placeholder="Ex: Julius Digital"></div>'+
-    '<div class="fg"><label class="flabel">CNPJ</label><input class="finput" id="empCnpj" value="'+escH(u.empresa_cnpj||'')+'" placeholder="00.000.000/0000-00"></div>'+
-    '<div class="fg"><label class="flabel">Telefone</label><input class="finput" id="empTel" type="tel" value="'+escH(u.empresa_tel||'')+'" placeholder="(19) 99999-9999" oninput="fmtWhats(this)"></div>'+
-    '<div class="fg"><label class="flabel">Endereco</label><input class="finput" id="empEnd" value="'+escH(u.empresa_end||'')+'" placeholder="Rua, numero, cidade"></div>'+
-    '<button class="btn btn-pri" onclick="salvarEmpresa()">Salvar</button></div>';
-}
-async function salvarEmpresa(){
-  var upd={empresa_nome:el('empNome')&&el('empNome').value||'',empresa_cnpj:el('empCnpj')&&el('empCnpj').value||'',empresa_tel:el('empTel')&&el('empTel').value||'',empresa_end:el('empEnd')&&el('empEnd').value||''};
-  await supa.from('usuarios').update(upd).eq('id',currentUser.id);
-  Object.assign(currentUser,upd);salvarSessao(currentUser);toast('Empresa salva!');
-}
-
-// ── MEU PLANO ─────────────────────────────────────────────────────────────────
-function renderMeuPlano(){
-  var u=currentUser||{};
-  if(u.admin)return '<div class="card" style="text-align:center;padding:30px"><div style="font-size:40px">&#x1F451;</div><div style="font-size:18px;font-weight:700;margin-top:10px">Conta Admin</div><div style="color:var(--gray);margin-top:6px">Acesso ilimitado</div></div>';
-  var hoje=new Date();hoje.setHours(0,0,0,0);
-  var ate=u.trial_ate?new Date(u.trial_ate):null;
-  if(ate)ate.setHours(0,0,0,0);
-  var ativo=ate&&ate>=hoje;
-  var dias=ate?Math.ceil((ate-hoje)/86400000):0;
-  var pixStr=gerarPix(AV_PIX_CHAVE,AV_PIX_NOME,AV_PIX_CIDADE,AV_PIX_VALOR);
-  var qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=10&data='+encodeURIComponent(pixStr);
-  var waMsg=encodeURIComponent('Oi! Acabei de realizar o pagamento do AgiVendas. Nome: '+escH(u.nome)+' / Email: '+u.email);
-  var waUrl='https://wa.me/'+AV_WA+'?text='+waMsg;
-  if(ativo)return (
-    '<div class="card" style="text-align:center;padding:24px;background:linear-gradient(135deg,#D1FAE5,#A7F3D0);margin-bottom:12px">'+
-    '<div style="font-size:44px">&#x2705;</div>'+
-    '<div style="font-size:20px;font-weight:700;color:#065F46;margin-top:10px">Plano Ativo</div>'+
-    '<div style="color:#047857;margin-top:6px">Válido até '+fmtDate(u.trial_ate)+'</div>'+
-    '<div style="color:#047857;font-size:13px;font-weight:600;margin-top:4px">'+dias+' dias restantes</div></div>'+
-    '<div class="card" style="text-align:center">'+
-    '<div style="font-size:13px;font-weight:600;margin-bottom:6px;color:var(--gray)">Renovar antecipado — R$ 39,90/mês</div>'+
-    '<img src="'+qrUrl+'" style="width:200px;height:200px;border-radius:12px;margin-bottom:12px" alt="QR Code PIX">'+
-    '<div style="background:var(--light);border-radius:10px;padding:10px;margin-bottom:12px;font-size:11px;color:var(--gray);word-break:break-all">'+pixStr.slice(0,40)+'...</div>'+
-    '<button class="btn btn-pri" onclick="navigator.clipboard&&navigator.clipboard.writeText(\''+pixStr+'\').then(function(){toast(\'Pix Copia e Cola copiado!\');})">&#x1F4CB; Copiar Pix Copia e Cola</button>'+
-    '<a href="'+waUrl+'" target="_blank" class="btn" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;background:#25D366;color:#fff;text-decoration:none">&#x1F4AC; Avisar após pagamento</a>'+
-    '</div>'
-  );
-  return (
-    '<div class="card" style="text-align:center;padding:20px;background:#FEE2E2;margin-bottom:12px">'+
-    '<div style="font-size:36px">&#x26A0;&#xFE0F;</div>'+
-    '<div style="font-size:16px;font-weight:700;color:var(--red);margin-top:8px">Plano Vencido</div>'+
-    '<div style="color:var(--red);font-size:12px;margin-top:4px">Renove para continuar usando o AgiVendas</div></div>'+
-    '<div class="card" style="text-align:center">'+
-    '<div style="font-size:17px;font-weight:700;margin-bottom:4px">Renovar Plano</div>'+
-    '<div style="font-size:22px;font-weight:800;color:var(--org);margin-bottom:16px">R$ 39,90/mês</div>'+
-    '<img src="'+qrUrl+'" style="width:220px;height:220px;border-radius:14px;margin-bottom:14px;box-shadow:0 4px 16px rgba(0,0,0,.12)" alt="QR Code PIX">'+
-    '<div style="font-size:11px;color:var(--gray);margin-bottom:10px">Escaneie o QR Code ou copie o Pix abaixo</div>'+
-    '<div style="background:var(--light);border-radius:10px;padding:10px;margin-bottom:14px;font-size:10px;color:#555;word-break:break-all;text-align:left">'+pixStr.slice(0,60)+'...</div>'+
-    '<button class="btn btn-pri" style="margin-bottom:10px" onclick="navigator.clipboard&&navigator.clipboard.writeText(\''+pixStr+'\').then(function(){toast(\'Pix Copia e Cola copiado!\');})">&#x1F4CB; Copiar Pix Copia e Cola</button>'+
-    '<a href="'+waUrl+'" target="_blank" class="btn" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#25D366;color:#fff;text-decoration:none;margin-bottom:10px">&#x1F4AC; Já paguei — avisar equipe</a>'+
-    '<p style="font-size:11px;color:var(--gray)">Após o pagamento seu plano será ativado em até 1h.</p></div>'
-  );
-}
-
-// ── GESTOR ADMIN ──────────────────────────────────────────────────────────────
-var _usuarios=[];
-async function renderGestorAsync(){
-  var c2=el('content');
-  if(!c2)return;
-  var res=await supa.from('usuarios').select('*').order('criado_em',{ascending:false});
-  _usuarios=res.data||[];
-  var hoje=new Date();hoje.setHours(0,0,0,0);
-  var rows='';
-  _usuarios.forEach(function(u){
-    var ate=u.trial_ate?new Date(u.trial_ate):null;
-    if(ate)ate.setHours(0,0,0,0);
-    var pago=ate&&ate>=hoje;
-    var dias=ate?Math.ceil((ate-hoje)/86400000):0;
-    var badge=u.admin?'<span class="status-badge badge-pago">Admin</span>':pago?'<span class="status-badge badge-trial">'+dias+'d</span>':'<span class="status-badge badge-exp">Expirado</span>';
-    rows+='<div class="user-row" onclick="gestorVerUsuario(\''+u.id+'\')">'+
-      '<div class="user-avatar">'+(u.nome?u.nome[0].toUpperCase():'?')+'</div>'+
-      '<div class="user-info"><div class="user-name">'+escH(u.nome||u.email)+'</div>'+
-      '<div class="user-meta">'+escH(u.email)+'</div></div>'+badge+'</div>';
-  });
-  c2.innerHTML='<div class="sec"><span class="sectit">'+_usuarios.length+' usuarios</span></div>'+
-    '<div class="lwrap">'+rows+'</div>';
-}
-function gestorVerUsuario(uid){
-  var u=_usuarios.find(function(x){return x.id===uid;});if(!u)return;
-  var hoje=new Date();hoje.setHours(0,0,0,0);
-  var ate=u.trial_ate?new Date(u.trial_ate):null;if(ate)ate.setHours(0,0,0,0);
-  var dias=ate?Math.ceil((ate-hoje)/86400000):0;
-  document.body.insertAdjacentHTML('beforeend',
-    '<div class="moverlay" id="moGU" onclick="if(event.target===this)closeModal(\'moGU\')">'+
-    '<div class="modal"><button class="mclose" onclick="closeModal(\'moGU\')">&#x2715;</button>'+
-    '<div class="mtit">'+escH(u.nome||u.email)+'</div>'+
-    '<div style="background:var(--light);border-radius:12px;padding:14px;margin-bottom:14px;font-size:13px">'+
-    '<div style="margin-bottom:4px"><b>Email:</b> '+escH(u.email)+'</div>'+
-    '<div style="margin-bottom:4px"><b>Cadastro:</b> '+fmtDate((u.criado_em||'').slice(0,10))+'</div>'+
-    '<div><b>Plano ate:</b> '+(u.trial_ate?fmtDate(u.trial_ate):'—')+' ('+dias+'d)</div></div>'+
-    '<div class="fg"><label class="flabel">Renovar plano ate</label><input class="finput" id="guData" type="date" value="'+(u.trial_ate||'')+'"></div>'+
-    '<div class="btn-row">'+
-    '<button class="btn btn-pri" style="flex:2" onclick="gestorRenovar(\''+uid+'\')">&#x2713; Salvar</button>'+
-    '<button class="btn btn-danger" onclick="gestorDesativar(\''+uid+'\')">'+(u.ativo?'Desativar':'Ativar')+'</button>'+
-    '</div></div></div>');
-}
-async function gestorRenovar(uid){
-  var data=el('guData')&&el('guData').value;if(!data){alert('Informe a data');return;}
-  await supa.from('usuarios').update({trial_ate:data,ativo:true}).eq('id',uid);
-  var u=_usuarios.find(function(x){return x.id===uid;});
-  if(u){u.trial_ate=data;u.ativo=true;}
-  closeModal('moGU');toast('Plano renovado ate '+fmtDate(data)+'!');renderGestorAsync();
-}
-async function gestorDesativar(uid){
-  var u=_usuarios.find(function(x){return x.id===uid;});if(!u)return;
-  var novoAtivo=!u.ativo;
-  showConfirm((novoAtivo?'Ativar':'Desativar')+' conta?',u.email,function(){
-    supa.from('usuarios').update({ativo:novoAtivo}).eq('id',uid).then(function(){
-      u.ativo=novoAtivo;closeModal('moGU');
-      toast('Conta '+(novoAtivo?'ativada':'desativada')+'!');renderGestorAsync();
-    });
-  });
-}
-
-// ── DATAS EDITÁVEIS NAS PARCELAS ──────────────────────────────────────────────
-function modEditarDataParcela(pid){
-  var p=parcelas.find(function(x){return x.id===pid;});if(!p)return;
-  var vp=parcelas.filter(function(x){return x.vendaid===p.vendaid;}).sort(function(a,b){return a.numero-b.numero;});
-  var proximas=vp.filter(function(x){return x.numero>p.numero&&!x.pago;});
-  document.body.insertAdjacentHTML('beforeend',
-    '<div class="moverlay" id="moED" onclick="if(event.target===this)closeModal(\'moED\')">'+
-    '<div class="modal"><button class="mclose" onclick="closeModal(\'moED\')">&#x2715;</button>'+
-    '<div class="mtit">Alterar Vencimento</div>'+
-    '<div style="background:var(--light);border-radius:12px;padding:12px;margin-bottom:14px;font-size:13px">'+
-    'Parcela '+p.numero+' - Atual: <b>'+fmtDate(p.vencimento)+'</b></div>'+
-    '<div class="fg"><label class="flabel">Nova data</label><input class="finput" id="edData" type="date" value="'+p.vencimento+'"></div>'+
-    '<div class="fg"><label class="flabel">Novo valor (R$) <span style="color:var(--gray);font-weight:400;font-size:11px">— opcional, para adicionar juros</span></label>'+
-    '<input class="finput" id="edValor" type="number" min="0" step="0.01" placeholder="'+p.valor+'" value="'+p.valor+'"></div>'+
-    (proximas.length?'<div style="background:#FFF3EB;border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px">'+
-    '&#x2139;&#xFE0F; Ha <b>'+proximas.length+'</b> parcelas futuras. Deseja atualizar a data de todas pela mesma diferenca?</div>'+
-    '<div class="btn-row">'+
-    '<button class="btn btn-sec" onclick="salvarDataParcela(\''+pid+'\',false)">Só esta</button>'+
-    '<button class="btn btn-pri" onclick="salvarDataParcela(\''+pid+'\',true)">Esta + proximas</button>'+
-    '</div>':
-    '<button class="btn btn-pri" onclick="salvarDataParcela(\''+pid+'\',false)">Salvar</button>')+
-    '</div></div>');
-}
-async function salvarDataParcela(pid,atualizarProximas){
-  var p=parcelas.find(function(x){return x.id===pid;});if(!p)return;
-  var novaData=el('edData')&&el('edData').value;if(!novaData){alert('Informe a data');return;}
-  var novoValor=parseFloat(el('edValor')&&el('edValor').value)||p.valor;
-  var diffMs=new Date(novaData)-new Date(p.vencimento);
-  var diffDias=Math.round(diffMs/86400000);
-  await updParcela(pid,{vencimento:novaData,valor:novoValor});
-  if(atualizarProximas&&diffDias!==0){
-    var proximas=parcelas.filter(function(x){return x.vendaid===p.vendaid&&x.numero>p.numero&&!x.pago;});
-    for(var i=0;i<proximas.length;i++){
-      var px=proximas[i];
-      var dt=new Date(px.vencimento);dt.setDate(dt.getDate()+diffDias);
-      var nd=dt.toISOString().slice(0,10);
-      await updParcela(px.id,{vencimento:nd});
-    }
-  }
-  closeModal('moED');renderScreen();
-  toast(atualizarProximas&&diffDias?'Data e proximas atualizadas!':'Data atualizada!');
-}
-
-
-function relExportar(){
-  var t=todayStr();var mes=t.slice(0,7);
-  var tR=parcelas.filter(function(p){return p.pago&&p.datapagamento&&p.datapagamento.slice(0,7)===mes;}).reduce(function(s,p){return s+(p.valor||0);},0);
-  var cu=vendas.filter(function(v){return v.data&&v.data.slice(0,7)===mes;}).reduce(function(s,v){return s+(v.custo||0);},0);
-  var tA=parcelas.filter(function(p){return !p.pago&&p.vencimento<t;}).reduce(function(s,p){return s+(p.valor||0);},0);
-  var txt='*DRE JuliusCredit*\n'+nomeMes(mes)+'\n\nRecebido: '+fmt(tR)+'\nCusto: '+fmt(cu)+'\nResultado: '+fmt(tR-cu)+'\n\nEm atraso: '+fmt(tA);
-  window.open('https://api.whatsapp.com/send?text='+encodeURIComponent(txt),'_blank');
-}
-
-// ── DETALHE VENDA (RESUMO STYLE) ────────────────────────
-function renderDetail(){
-  const venda=vendas.find(v=>v.id===param);
-  if(!venda)return '<div class="empty"><div class="empty-ic">&#x274C;</div><div class="empty-tx">Nao encontrada</div></div>';
-  const cli=clientes.find(c=>c.id===venda.clienteid);
-  const vp=parcelas.filter(p=>p.vendaid===param).sort((a,b)=>a.numero-b.numero);
-  const pago=vp.filter(p=>p.pago).reduce((s,p)=>s+(p.valor||0),0);
-  const debit=vp.filter(p=>!p.pago).reduce((s,p)=>s+(p.valor||0),0);
-  // BOTOES TOPO
-  const topBtns=`<div style="display:flex;gap:10px;margin-bottom:16px"><button class="btn btn-sec" style="flex:1;flex-direction:column;gap:2px;padding:10px" onclick="nav('venda-parcelas','${venda.id}')"><span style="font-size:18px">&#x1F4B3;</span><span style="font-size:11px">Parcelas</span></button><button class="btn btn-sec" style="flex:1;flex-direction:column;gap:2px;padding:10px" onclick="compartilhar('${venda.id}')"><span style="font-size:18px">&#x1F4E4;</span><span style="font-size:11px">Compartilhar</span></button><button class="btn btn-danger" style="flex:1;flex-direction:column;gap:2px;padding:10px" onclick="confDel('${venda.id}')"><span style="font-size:18px">&#x1F5D1;</span><span style="font-size:11px">Excluir</span></button></div>`;
-  // RECIBO STYLE
-  const pagRows=vp.map(p=>`<div class="recibo-row"><span>${p.numero} · ${p.pagamento} · ${fmtDate(p.vencimento)}</span><span class="${p.pago?'recibo-pago':''}">${fmt(p.valor)}</span></div>`).join('');
-  return `${topBtns}<div class="recibo-wrap"><div class="recibo-center"><div class="recibo-h">#${venda.numero}</div><div style="font-size:12px;color:var(--gray)">${fmtDate(venda.data)}</div></div><hr class="recibo-divider"><div class="recibo-label">Cliente</div><div style="font-size:13px;margin-bottom:8px">${escH(cli?cli.nome:'Nao informado')}</div><hr class="recibo-divider"><div class="recibo-label">Produto</div><div class="recibo-row" style="margin-bottom:8px"><span>${escH(venda.produto)}</span><span>${venda.qtd||1}x ${fmt(venda.preco||venda.total)}</span></div><div class="recibo-row bold"><span>Subtotal</span><span>${fmt(venda.total)}</span></div><hr class="recibo-divider"><div class="recibo-label">Pagamento</div>${pagRows}<hr class="recibo-divider"><div class="recibo-row"><span>Parcelas em aberto</span><span style="color:var(--red)">${fmt(debit)}</span></div><div class="recibo-row bold"><span>Total</span><span>${fmt(venda.total)}</span></div>${debit>0?`<div class="recibo-row"><span>Saldo devedor</span><span style="color:var(--red);font-weight:bold">${fmt(debit)}</span></div>`:''}</div>`;
-}
-
-// ── PARCELAS MANAGEMENT ──────────────────────────────────
-function renderParcelas(){
-  const venda=vendas.find(v=>v.id===param);
-  if(!venda)return '<div class="empty"><div class="empty-ic">&#x274C;</div></div>';
-  const cli=clientes.find(c=>c.id===venda.clienteid);
-  const vp=parcelas.filter(p=>p.vendaid===param).sort((a,b)=>a.numero-b.numero);
-  const pago=vp.filter(p=>p.pago).reduce((s,p)=>s+(p.valor||0),0);
-  const debit=vp.filter(p=>!p.pago).reduce((s,p)=>s+(p.valor||0),0);
-  const t=todayStr();
-  let pRows='';
-  vp.forEach(p=>{
-    let tag='';
-    if(!p.pago&&p.vencimento===t)tag='<span class="tag-org">Hoje</span>';
-    else if(!p.pago&&p.vencimento<t)tag='<span class="tag-red">Atraso</span>';
-    else if(p.pago)tag='<span class="tag-grn">Pago</span>';
-    pRows+=`<div class="prow2"><div class="prow2-main"><div class="pnum">${p.numero}</div><div class="pinfo"><div class="pdate" onclick="modEditarDataParcela('${p.id}')" style="cursor:pointer">${fmtDate(p.vencimento)} ${tag} <span style="font-size:10px;color:var(--org)">&#x270E;</span></div><div class="ppay">${p.pagamento} · ${fmt(p.valor)}</div>${p.pago?`<div class="prow2-paid-info">Pago em ${fmtDate(p.datapagamento?.slice(0,10))}</div>`:''}</div><div style="margin-left:auto;display:flex;align-items:center;gap:8px"><div class="pval">${fmt(p.valor)}</div><div class="chk ${p.pago?'on':''}" onclick="toggleParc('${p.id}')">${p.pago?'&#x2713;':''}</div></div></div><button class="prow2-del" onclick="excluirParc('${p.id}')">&#x1F5D1; Excluir</button></div>`;
-  });
-  return `<div style="padding-bottom:80px"><div class="pscreen-top"><div class="pscreen-stat"><div class="pscreen-stat-label" style="color:var(--grn)">&#x2193; Pago</div><div class="pscreen-stat-val" style="color:var(--grn)">${fmt(pago)}</div></div><div class="pscreen-stat"><div class="pscreen-stat-label" style="color:var(--red)">&#x2191; Em atraso</div><div class="pscreen-stat-val" style="color:var(--red)">${fmt(debit)}</div></div></div>
-  <div style="font-size:13px;font-weight:600;color:var(--gray);margin-bottom:6px">${escH(cli?cli.nome:'')} · Venda #${venda.numero}</div>
-  <div class="card" style="padding:4px 8px">${pRows||'<div style="padding:12px;text-align:center;color:var(--gray)">Sem parcelas</div>'}</div>
-  <div style="text-align:right;font-size:13px;font-weight:700;margin-bottom:14px">Total: ${fmt(venda.total)}</div>
-  <div class="pactions"><button class="paction-btn" onclick="modAdicionarParc('${venda.id}')"><span>+</span>Adicionar parcela</button><button class="paction-btn" onclick="modReceberOutro('${venda.id}')"><span>&#x1F4B0;</span>Receber outro valor</button><button class="paction-btn" onclick="modRolarJuros('${venda.id}')"><span>&#x1F501;</span>Rolar Juros</button></div><button class="btn btn-pri" style="margin-top:14px;width:100%" `;
-}
-
-function toggleParc(pid){
-  const p=parcelas.find(x=>x.id===pid);if(!p)return;
-  const novoPago=!p.pago;
-  const novaData=novoPago?nowStr():null;
-  p.pago=novoPago;
-  p.datapagamento=novaData;
-  pendingChanges[pid]={pago:novoPago,datapagamento:novaData};
-  renderScreen();
-}
-
-async function salvarParcelas(){
-  const ids=Object.keys(pendingChanges);
-  if(ids.length===0){showReciboModal(param);return;}
-  for(var i=0;i<ids.length;i++){
-    await updParcela(ids[i],pendingChanges[ids[i]]);
-  }
-  pendingChanges={};
-  updBadge();
-  showReciboModal(param);
-}
-function excluirParc(pid){
-  showConfirm('Excluir parcela?','Esta ação não pode ser desfeita.',function(){
-    delParcela(pid).then(function(){renderScreen();toast('Parcela excluída');});
-  });
-}
-
-function modRolarJuros(vendaId){
-  var v=vendas.find(function(x){return x.id===vendaId;});if(!v)return;
-  var cli=clientes.find(function(c){return c.id===v.clienteid;});
-  // Pegar primeira parcela em aberto
-  var parcsAbertas=parcelas.filter(function(p){return p.vendaid===vendaId&&!p.pago;}).sort(function(a,b){return a.vencimento.localeCompare(b.vencimento);});
-  if(parcsAbertas.length===0){toast('Nenhuma parcela em aberto!');return;}
-  var proxParc=parcsAbertas[0];
-  // Calcular nova data: mesmo dia do mes seguinte
-  var dtAtual=new Date(proxParc.vencimento+'T12:00:00');
-  var novaData=new Date(dtAtual);
-  novaData.setMonth(novaData.getMonth()+1);
-  var novaDataStr=novaData.toISOString().slice(0,10);
-  var html=
-    '<div class="moverlay" id="moRJ" onclick="if(event.target===this)closeModal(\'moRJ\')">'+
-    '<div class="modal">'+
-    '<button class="mclose" onclick="closeModal(\'moRJ\')">&#x2715;</button>'+
-    '<div class="mtit">&#x1F501; Rolar Juros</div>'+
-    '<div style="background:var(--light);border-radius:12px;padding:14px;margin-bottom:16px;font-size:13px">'+
-    '<div style="font-weight:700;margin-bottom:6px">'+(cli?cli.nome:'')+' — Venda #'+v.numero+'</div>'+
-    '<div style="color:var(--gray)">Parcela em aberto: <b style="color:var(--red)">'+fmt(proxParc.valor)+'</b> — vence '+fmtDate(proxParc.vencimento)+'</div>'+
-    '</div>'+
-    '<div class="fg"><label class="flabel">Valor dos juros (R$)</label>'+
-    '<input class="finput" id="rjValor" type="number" min="0" step="0.01" placeholder="Ex: 100,00" style="font-size:18px;text-align:center"></div>'+
-    '<div class="fg"><label class="flabel">Data do pagamento dos juros</label>'+
-    '<input class="finput" id="rjDataPag" type="date" value="'+todayStr()+'">'+
-    '<small style="color:var(--gray);font-size:11px;margin-top:4px;display:block">Se houve atraso, ajuste a data e o valor acima</small></div>'+
-    '<div class="fg"><label class="flabel">Nova data de vencimento da parcela</label>'+
-    '<input class="finput" id="rjDataVenc" type="date" value="'+novaDataStr+'"></div>'+
-    '<div class="fg"><label class="flabel">Forma de pagamento</label>'+
-    '<select class="finput" id="rjForma"><option>Pix</option><option>Dinheiro</option><option>Cartao</option><option>Boleto</option><option>Fiado</option></select></div>'+
-    '<div style="background:#FFF3EB;border-radius:10px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--org)">'+
-    '&#x2139;&#xFE0F; Ajuste as datas se houve atraso — o valor dos juros tambem pode mudar nesses casos</div>'+
-    '<button class="btn btn-pri" id="btnRJ" onclick="salvarRolarJuros(\''+vendaId+'\',\''+proxParc.id+'\');">Confirmar</button>'+
-    '</div></div>';
-  document.body.insertAdjacentHTML('beforeend',html);
-  setTimeout(function(){var inp=document.getElementById('rjValor');if(inp)inp.focus();},100);
-}
-
-async function salvarRolarJuros(vendaId,parcId){
-  var btn=document.getElementById('btnRJ');if(btn)btn.disabled=true;
-  var valorJuros=parseFloat(document.getElementById('rjValor')&&document.getElementById('rjValor').value);
-  var dataPag=document.getElementById('rjDataPag')&&document.getElementById('rjDataPag').value||todayStr();
-  var novaData=document.getElementById('rjDataVenc')&&document.getElementById('rjDataVenc').value;
-  var forma=document.getElementById('rjForma')&&document.getElementById('rjForma').value;
-  if(!valorJuros||valorJuros<=0){alert('Informe o valor dos juros');if(btn)btn.disabled=false;return;}
-  if(!novaData){alert('Informe a nova data de vencimento');if(btn)btn.disabled=false;return;}
-  var vp=parcelas.filter(function(p){return p.vendaid===vendaId;});
-  var novoNum=Math.max.apply(null,vp.map(function(p){return p.numero;}))+1;
-  await addParcela({id:genId(),vendaid:vendaId,numero:novoNum,vencimento:dataPag,pagamento:forma||'Pix',valor:valorJuros,pago:true,datapagamento:dataPag+'T12:00:00'});
-  await updParcela(parcId,{vencimento:novaData});
-  closeModal('moRJ');
-  updBadge();
-  renderScreen();
-  toast('Juros registrados! Vencimento empurrado para '+fmtDate(novaData));
-}
-
-function modAdicionarParc(vendaId){
-  document.body.insertAdjacentHTML('beforeend',`<div class="moverlay" id="moAP" onclick="if(event.target===this)closeModal('moAP')"><div class="modal"><button class="mclose" onclick="closeModal('moAP')">&#x2715;</button><div class="mtit">Adicionar Parcela</div><div class="fg"><label class="flabel">Vencimento</label><input class="finput" id="apData" type="date" value="${addMonths(todayStr(),1)}"></div><div class="fg"><label class="flabel">Valor (R$)</label><input class="finput" id="apValor" type="number" placeholder="0.00" min="0"></div><div class="fg"><label class="flabel">Pagamento</label><select class="finput" id="apForma"><option>Pix</option><option>Dinheiro</option><option>Cartao</option><option>Boleto</option><option>Fiado</option></select></div><button class="btn btn-pri" onclick="salvarNovaParcela('${vendaId}')">Adicionar</button></div></div>`);
-}
-
-async function salvarNovaParcela(vendaId){
-  const data=el('apData')?.value;const valor=parseFloat(el('apValor')?.value);const forma=el('apForma')?.value;
-  if(!data||!valor){alert('Preencha todos os campos');return;}
-  const vp=parcelas.filter(p=>p.vendaid===vendaId);
-  const novaNum=Math.max(...vp.map(p=>p.numero),0)+1;
-  await addParcela({id:genId(),vendaid:vendaId,numero:novaNum,vencimento:data,pagamento:forma,valor,pago:false,datapagamento:null});
-  closeModal('moAP');renderScreen();toast('Parcela adicionada!');
-}
-
-function modReceberOutro(vendaId){
-  const venda=vendas.find(v=>v.id===vendaId);
-  const cli=clientes.find(c=>c.id===venda?.clienteid);
-  const debit=parcelas.filter(p=>p.vendaid===vendaId&&!p.pago).reduce((s,p)=>s+(p.valor||0),0);
-  const proxParc=parcelas.filter(p=>p.vendaid===vendaId&&!p.pago).sort((a,b)=>a.vencimento.localeCompare(b.vencimento))[0];
-  document.body.insertAdjacentHTML('beforeend',`<div class="moverlay" id="moRO" onclick="if(event.target===this)closeModal('moRO')"><div class="modal"><button class="mclose" onclick="closeModal('moRO')">&#x2715;</button><div class="mtit">Receber Outro Valor</div><div style="background:var(--light);border-radius:12px;padding:14px;margin-bottom:16px"><div style="font-size:13px;font-weight:700">${escH(cli?cli.nome:'')}</div><div style="font-size:12px;color:var(--gray);margin-top:4px">Total da venda: ${fmt(venda?.total)}</div><div style="font-size:12px;color:var(--red);font-weight:600">Em aberto: ${fmt(debit)}</div></div><p style="text-align:center;font-size:14px;font-weight:600;margin-bottom:12px">Qual o valor pago parcialmente?</p><div class="fg"><input class="finput" id="roValor" type="number" placeholder="R$ 0,00" min="0" style="font-size:18px;text-align:center"></div><div class="fg"><label class="flabel">Vencimento do restante</label><input class="finput" id="roData" type="date" value="${addMonths(todayStr(),1)}"></div><button class="btn btn-pri" id="btnSalvRO" onclick="salvarReceberOutro('${vendaId}','${proxParc?.id||''}')">Salvar</button></div></div>`);
-}
-
-async function salvarReceberOutro(vendaId,proxParcId){
-  const btn=el('btnSalvRO');if(btn)btn.disabled=true;
-  const valorPago=parseFloat(el('roValor')?.value);
-  const dataRestante=el('roData')?.value;
-  if(!valorPago||valorPago<=0){alert('Informe o valor pago');if(btn)btn.disabled=false;return;}
-  const venda=vendas.find(v=>v.id===vendaId);
-  const debit=parcelas.filter(p=>p.vendaid===vendaId&&!p.pago).reduce((s,p)=>s+(p.valor||0),0);
-  const restante=parseFloat((debit-valorPago).toFixed(2));
-  // Marcar a proxima parcela como paga com valor parcial
-  if(proxParcId){
-    const pp=parcelas.find(p=>p.id===proxParcId);
-    if(pp){
-      await updParcela(proxParcId,{valor:valorPago,pago:true,datapagamento:nowStr()});
-      // Se tem restante, criar nova parcela
-      if(restante>0){
-        const vp=parcelas.filter(p=>p.vendaid===vendaId);
-        const novaNum=Math.max(...vp.map(p=>p.numero),0)+1;
-        await addParcela({id:genId(),vendaid:vendaId,numero:novaNum,vencimento:dataRestante||addMonths(todayStr(),1),pagamento:pp.pagamento,valor:restante,pago:false,datapagamento:null});
-      }
-    }
-  } else {
-    // Sem parcela existente, criar duas: uma paga e uma em aberto
-    const vp=parcelas.filter(p=>p.vendaid===vendaId);
-    const n=Math.max(...vp.map(p=>p.numero),0);
-    await addParcela({id:genId(),vendaid:vendaId,numero:n+1,vencimento:todayStr(),pagamento:'Pix',valor:valorPago,pago:true,datapagamento:nowStr()});
-    if(restante>0)await addParcela({id:genId(),vendaid:vendaId,numero:n+2,vencimento:dataRestante||addMonths(todayStr(),1),pagamento:'Pix',valor:restante,pago:false,datapagamento:null});
-  }
-  closeModal('moRO');renderScreen();toast('Pagamento parcial registrado!');
-  updBadge();
-}
-
-// ── COMPARTILHAR / WPP ──────────────────────────────────
-function gerarImagemRecibo(vid){
-  var v=vendas.find(function(x){return x.id===vid;});
-  if(!v||typeof html2canvas==='undefined'){compartilhar(vid);return;}
-  var cli=clientes.find(function(c){return c.id===v.clienteid;});
-  var vp=parcelas.filter(function(p){return p.vendaid===vid;}).sort(function(a,b){return a.numero-b.numero;});
-  var debit=vp.filter(function(p){return !p.pago;}).reduce(function(s,p){return s+(p.valor||0);},0);
-  var rc=document.getElementById('rcWrap');
-  if(!rc){compartilhar(vid);return;}
-  var sep='<div style="border-top:1px dashed #aaa;margin:8px 0"></div>';
-  var pr='';
-  vp.forEach(function(p){
-    var st=p.pago?'text-decoration:line-through;color:#aaa':'';
-    pr+='<div style="display:flex;justify-content:space-between;padding:1px 0">';
-    pr+='<span>'+p.numero+' '+p.pagamento+'</span>';
-    pr+='<span style="flex:1;text-align:center">'+fmtDate(p.vencimento)+'</span>';
-    pr+='<span style="'+st+'">'+fmt(p.valor)+'</span></div>';
-    if(p.pago&&p.datapagamento)
-      pr+='<div style="font-size:10px;color:#888;text-align:right">Data Pagamento: '+fmtDate(p.datapagamento.slice(0,10))+' '+p.datapagamento.slice(11,19)+'</div>';
-  });
-  rc.innerHTML=
-    '<div style="text-align:center;font-size:20px;font-weight:bold">Recibo</div>'+
-    '<div style="text-align:center;color:#555;margin-bottom:4px">Venda #'+v.numero+'</div>'+sep+
-    '<div style="text-align:center;color:#555">'+new Date().toLocaleDateString('pt-BR')+' '+new Date().toLocaleTimeString('pt-BR')+'</div>'+sep+
-    '<b>Cliente</b><div style="margin:2px 0 6px">'+(cli?cli.nome:'Nao informado')+'</div>'+sep+
-    '<b>Pagamento</b><div style="margin:4px 0">'+pr+'</div>'+sep+
-    (debit>0?'<div style="text-align:right"><b>Saldo devedor total: '+fmt(debit)+'</b></div>'+sep:'');
-  rc.style.cssText='position:fixed;left:0;top:0;z-index:9999;width:380px;background:#fff;padding:24px;font-family:Courier New,monospace;font-size:12px;line-height:1.7;color:#000';
-  setTimeout(function(){
-    html2canvas(rc,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false}).then(function(canvas){
-      rc.style.cssText='position:fixed;left:-9999px;top:-9999px;z-index:-1';
-      canvas.toBlob(function(blob){
-        var nome=(cli?cli.nome:'').replace(/\s+/g,'_');
-        var fname=v.numero+'_'+nome+'_.jpeg';
-        var file=new File([blob],fname,{type:'image/jpeg'});
-        if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
-          navigator.share({files:[file],title:'Recibo'}).catch(function(){});
-        } else {
-          var url=URL.createObjectURL(blob);
-          var a=document.createElement('a');a.href=url;a.download=fname;
-          document.body.appendChild(a);a.click();document.body.removeChild(a);
-          setTimeout(function(){URL.revokeObjectURL(url);},3000);
-          toast('Imagem baixada! Envie pelo WhatsApp.');
-        }
-      },'image/jpeg',0.95);
-    }).catch(function(){
-      rc.style.cssText='position:fixed;left:-9999px;top:-9999px;z-index:-1';
-      compartilhar(vid);
-    });
-  },100);
-}
-
-function compartilhar(vid){
-  const v=vendas.find(x=>x.id===vid);if(!v)return;
-  const cli=clientes.find(c=>c.id===v.clienteid);
-  const vp=parcelas.filter(p=>p.vendaid===vid).sort((a,b)=>a.numero-b.numero);
-  const pago=vp.filter(p=>p.pago).reduce((s,p)=>s+(p.valor||0),0);
-  const debit=vp.filter(p=>!p.pago).reduce((s,p)=>s+(p.valor||0),0);
-  const txt='*Resumo - '+(cli?cli.nome:'')+' *\n'+v.produto+'\nVenda #'+v.numero+'\n\n'+vp.map(p=>p.numero+'. '+fmtDate(p.vencimento)+' - '+fmt(p.valor)+(p.pago?' ✅':'')).join('\n')+'\n\n*Total: '+fmt(v.total)+'*\n✅ Pago: '+fmt(pago)+'\n⏳ Em aberto: '+fmt(debit);
-  const tel=cli?.telefone?cli.telefone.replace(/\D/g,''):'';
-  const url=tel?'https://api.whatsapp.com/send?phone='+tel+'&text='+encodeURIComponent(txt):'https://api.whatsapp.com/send?text='+encodeURIComponent(txt);
-  window.open(url,'_blank');
-}
-
-
-function showReciboModal(vendaId){
-  var v=vendas.find(function(x){return x.id===vendaId;});if(!v)return;
-  var cli=clientes.find(function(c){return c.id===v.clienteid;});
-  var vp=parcelas.filter(function(p){return p.vendaid===vendaId;}).sort(function(a,b){return a.numero-b.numero;});
-  var debit=vp.filter(function(p){return !p.pago;}).reduce(function(s,p){return s+(p.valor||0);},0);
-  var sep='<div style="border-top:1px dashed #ccc;margin:10px 0"></div>';
-  var pRows='<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:bold;margin-bottom:6px"><span style="width:24px">#</span><span style="flex:1">Pagamento</span><span style="width:90px;text-align:center">Vencimento</span><span style="width:70px;text-align:right">Valor</span></div>';
-  vp.forEach(function(p){
-    var paid=p.pago?'text-decoration:line-through;color:#aaa':'';
-    pRows+='<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;align-items:baseline">';
-    pRows+='<span style="width:24px;color:#888">'+p.numero+'</span>';
-    pRows+='<span style="flex:1">'+p.pagamento+'</span>';
-    pRows+='<span style="width:90px;text-align:center">'+fmtDate(p.vencimento)+'</span>';
-    pRows+='<span style="width:70px;text-align:right;'+paid+'">'+fmt(p.valor)+'</span>';
-    pRows+='</div>';
-    if(p.pago&&p.datapagamento)
-      pRows+='<div style="font-size:10px;color:#888;text-align:right;margin-bottom:2px">Data Pagamento: '+fmtDate(p.datapagamento.slice(0,10))+' '+p.datapagamento.slice(11,19)+'</div>';
-  });
-  var reciboHtml=
-    '<div style="text-align:center;font-size:22px;font-weight:bold;margin-bottom:4px">Recibo</div>'+
-    '<div style="text-align:center;font-size:13px;color:#666">Venda #'+v.numero+'</div>'+sep+
-    '<div style="text-align:center;font-size:12px;color:#666">'+new Date().toLocaleDateString('pt-BR')+' '+new Date().toLocaleTimeString('pt-BR')+'</div>'+sep+
-    '<div style="font-size:11px;font-weight:bold;color:#888;margin-bottom:2px">Cliente</div>'+
-    '<div style="font-size:14px;font-weight:600;margin-bottom:8px">'+(cli?cli.nome:'Nao informado')+'</div>'+sep+
-    '<div style="font-size:11px;font-weight:bold;color:#888;margin-bottom:6px">Pagamento</div>'+
-    pRows+sep+
-    (debit>0?'<div style="text-align:right;font-weight:bold;font-size:13px">Saldo devedor total: '+fmt(debit)+'</div>'+sep:'');
-  var modal=
-    '<div class="moverlay" id="moRecibo" style="align-items:flex-start;background:#f0f2f5;overflow-y:auto;padding:0">'+
-    '<div style="width:100%;max-width:430px;min-height:100vh;padding:20px;position:relative">'+
-    '<button onclick="closeModal(\'moRecibo\');nav(\'financeiro\')" style="position:absolute;top:18px;right:18px;background:#fff;border:none;border-radius:50%;width:38px;height:38px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:10">&#x2715;</button>'+
-    '<div id="reciboCard" style="background:#fff;border-radius:14px;padding:24px;font-family:Courier New,monospace;margin-top:10px;box-shadow:0 2px 12px rgba(0,0,0,.08)">'+
-    reciboHtml+'</div>'+
-    '<div style="display:flex;gap:12px;margin-top:16px;padding-bottom:30px">'+
-    '<button class="btn btn-pri" style="flex:1;gap:6px" onclick="imprimirRecibo()">&#x1F5A8; Imprimir</button>'+
-    '<button class="btn btn-pri" style="flex:1;gap:6px" onclick="compartilharReciboImg(\''+vendaId+'\')">&#x1F4E4; Compartilhar</button>'+
-    '</div></div></div>';
-  document.body.insertAdjacentHTML('beforeend',modal);
-}
-
-function compartilharReciboImg(vendaId){
-  var v=vendas.find(function(x){return x.id===vendaId;});
-  if(!v)return;
-  var cli=clientes.find(function(x){return x.id===v.clienteid;});
-  var vp=parcelas.filter(function(p){return p.vendaid===vendaId;}).sort(function(a,b){return a.numero-b.numero;});
-  var debit=vp.filter(function(p){return !p.pago;}).reduce(function(s,p){return s+(p.valor||0);},0);
-
-  // Gera imagem via Canvas 2D (funciona em todos os iOS sem dependencias externas)
-  var W=760, pad=40, lh=30;
-  var rows=[];
-  rows.push({t:'title', txt:'Recibo'});
-  rows.push({t:'center', txt:'Venda #'+v.numero});
-  rows.push({t:'div'});
-  rows.push({t:'center', txt:new Date().toLocaleDateString('pt-BR')+' '+new Date().toLocaleTimeString('pt-BR')});
-  rows.push({t:'div'});
-  rows.push({t:'label', txt:'Cliente'});
-  rows.push({t:'text', txt:cli?cli.nome:'Nao informado'});
-  rows.push({t:'div'});
-  rows.push({t:'label', txt:'Pagamento'});
-  vp.forEach(function(p){
-    var pago=p.pago?' (pago)':'';
-    rows.push({t:'parc', num:p.numero, pay:p.pagamento, date:fmtDate(p.vencimento), val:fmt(p.valor), riscado:p.pago});
-    if(p.pago&&p.datapagamento)rows.push({t:'small', txt:'Data Pagamento: '+fmtDate(p.datapagamento.slice(0,10))+' '+p.datapagamento.slice(11,19)});
-  });
-  rows.push({t:'div'});
-  if(debit>0){rows.push({t:'bold', txt:'Saldo devedor total: '+fmt(debit)});rows.push({t:'div'});}
-
-  // Calcular altura
-  var H=pad;
-  rows.forEach(function(r){H+=r.t==='div'?16:r.t==='title'?44:r.t==='small'?22:lh;});
-  H+=pad;
-
-  var cv=document.createElement('canvas');
-  cv.width=W;cv.height=H;
-  var ctx=cv.getContext('2d');
-  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
-
-  var y=pad;
-  rows.forEach(function(r){
-    ctx.fillStyle='#000';
-    if(r.t==='div'){
-      ctx.setLineDash([6,6]);ctx.strokeStyle='#ccc';ctx.lineWidth=1;
-      ctx.beginPath();ctx.moveTo(pad,y+8);ctx.lineTo(W-pad,y+8);ctx.stroke();
-      ctx.setLineDash([]);y+=16;
-    } else if(r.t==='title'){
-      ctx.font='bold 36px Courier New';ctx.textAlign='center';
-      ctx.fillText(r.txt,W/2,y+36);ctx.textAlign='left';y+=44;
-    } else if(r.t==='center'){
-      ctx.font='24px Courier New';ctx.textAlign='center';
-      ctx.fillText(r.txt,W/2,y+24);ctx.textAlign='left';y+=lh;
-    } else if(r.t==='label'){
-      ctx.font='bold 22px Courier New';ctx.fillStyle='#888';
-      ctx.fillText(r.txt,pad,y+22);y+=lh;
-    } else if(r.t==='bold'){
-      ctx.font='bold 24px Courier New';ctx.textAlign='right';
-      ctx.fillText(r.txt,W-pad,y+24);ctx.textAlign='left';y+=lh;
-    } else if(r.t==='small'){
-      ctx.font='20px Courier New';ctx.fillStyle='#888';
-      ctx.fillText(r.txt,pad+20,y+18);y+=22;
-    } else if(r.t==='parc'){
-      ctx.font='22px Courier New';
-      ctx.fillStyle=r.riscado?'#aaa':'#000';
-      var line=r.num+'  '+r.pay+'  '+r.date;
-      ctx.fillText(line,pad,y+22);
-      if(r.riscado){
-        ctx.strokeStyle='#aaa';ctx.lineWidth=1;ctx.setLineDash([]);
-        var tw=ctx.measureText(r.val).width;
-        var rx=W-pad-tw;
-        ctx.beginPath();ctx.moveTo(rx,y+14);ctx.lineTo(W-pad,y+14);ctx.stroke();
-      }
-      ctx.textAlign='right';
-      ctx.fillText(r.val,W-pad,y+22);
-      ctx.textAlign='left';ctx.fillStyle='#000';
-      y+=lh;
-    } else {
-      ctx.font='24px Courier New';
-      ctx.fillText(r.txt,pad,y+22);y+=lh;
-    }
-  });
-
-  cv.toBlob(function(blob){
-    var nome=(cli?cli.nome:'').replace(/\s+/g,'_');
-    var fname=v.numero+'_'+nome+'_.jpeg';
-    var file=new File([blob],fname,{type:'image/jpeg'});
-    var url=URL.createObjectURL(blob);
-    // Tentar Web Share API com arquivo
-    if(navigator.share){
-      var sd={title:'Recibo #'+v.numero};
-      if(navigator.canShare&&navigator.canShare({files:[file]}))sd.files=[file];
-      else sd.url=url;
-      navigator.share(sd).then(function(){
-        closeModal('moRecibo');nav('financeiro');
-      }).catch(function(err){
-        if(err.name!=='AbortError'){
-          // Fallback: abrir imagem em nova aba (iPhone mostra botao compartilhar nativo)
-          window.open(url,'_blank');
-        }
-        URL.revokeObjectURL(url);
-      });
-    } else {
-      // Desktop: baixar arquivo
-      var a=document.createElement('a');a.href=url;a.download=fname;
-      document.body.appendChild(a);a.click();document.body.removeChild(a);
-      setTimeout(function(){URL.revokeObjectURL(url);},3000);
-      toast('Imagem salva!');
-      setTimeout(function(){closeModal('moRecibo');nav('financeiro');},1500);
-    }
-  },'image/jpeg',0.95);
-}
-
-function imprimirRecibo(){
-  var card=document.getElementById('reciboCard');
-  if(!card){toast('Erro ao imprimir');return;}
-  var orig=document.body.innerHTML;
-  var style='<style>@media print{body *{visibility:hidden;}#reciboCard,#reciboCard *{visibility:visible;}#reciboCard{position:fixed;top:0;left:0;width:100%;font-family:Courier New,monospace;font-size:13px;line-height:1.8;}}</style>';
-  if(!document.getElementById('printStyle')){
-    var s=document.createElement('style');s.id='printStyle';
-    s.innerHTML='@media print{body *{visibility:hidden;}#reciboCard,#reciboCard *{visibility:visible;}#reciboCard{position:fixed;top:0;left:0;width:100%;padding:20px;font-family:Courier New,monospace;font-size:13px;line-height:1.8;}}';
-    document.head.appendChild(s);
-  }
-  window.print();
-}
-
-
-function perguntarWpp(pid){
-  var p=parcelas.find(function(x){return x.id===pid;});
-  if(p&&p.vendaid) showReciboModal(p.vendaid);
-}
-
-function confDel(id){document.body.insertAdjacentHTML('beforeend',`<div class="moverlay" id="moDel" onclick="if(event.target===this)closeModal('moDel')"><div class="modal"><div class="mtit">Excluir venda?</div><p style="text-align:center;font-size:13px;color:var(--gray);margin-bottom:18px">Exclui a venda e todas as parcelas.</p><div class="btn-row"><button class="btn btn-sec" onclick="closeModal('moDel')">Cancelar</button><button class="btn btn-danger" onclick="delVenda('${id}').then(()=>closeModal('moDel'))">Excluir</button></div></div></div>`);}
-function srch(inp,lid){const q=inp.value.toLowerCase();document.querySelectorAll('#'+lid+' .litem').forEach(i=>i.style.display=i.textContent.toLowerCase().includes(q)?'':'none');}
-function srchF(inp,lid){const q=inp.value.toLowerCase();document.querySelectorAll('#'+lid+' .fitem').forEach(i=>i.style.display=i.textContent.toLowerCase().includes(q)?'':'none');}
-
-// ── MODAIS CADASTRO ──────────────────────────────────────
-function modNewCli(){document.body.insertAdjacentHTML('beforeend',`<div class="moverlay" id="moNC" onclick="if(event.target===this)closeModal('moNC')"><div class="modal"><button class="mclose" onclick="closeModal('moNC')">&#x2715;</button><div class="mtit">Novo Cliente</div><div class="fg"><label class="flabel">Nome *</label><input class="finput" id="ncNome" placeholder="Nome completo"></div><div class="fg"><label class="flabel">WhatsApp</label><input class="finput" id="ncTel" type="tel" placeholder="+55 19 99999-9999" oninput="this.value=fmtPhone(this.value)"></div><button class="btn btn-pri" onclick="savNC()">Salvar</button></div></div>`);}
-async function savNC(){const n=el('ncNome')?.value?.trim();if(!n){alert('Informe o nome');return;}const tel=savePhone(el('ncTel')?.value||'');await addCliente({nome:n,telefone:tel});closeModal('moNC');renderScreen();toast('Cliente salvo!');}
-function modEditCli(id){const c=clientes.find(x=>x.id===id);if(!c)return;document.body.insertAdjacentHTML('beforeend',`<div class="moverlay" id="moEC" onclick="if(event.target===this)closeModal('moEC')"><div class="modal"><button class="mclose" onclick="closeModal('moEC')">&#x2715;</button><div class="mtit">Editar Cliente</div><div class="fg"><label class="flabel">Nome</label><input class="finput" id="ecNome" value="${escH(c.nome)}"></div><div class="fg"><label class="flabel">WhatsApp</label><input class="finput" id="ecTel" type="tel" value="${escH(fmtPhone(c.telefone||''))}" oninput="this.value=fmtPhone(this.value)"></div><button class="btn btn-pri" onclick="saveEC('${id}')">Salvar</button></div></div>`);}
-async function saveEC(id){const n=el('ecNome')?.value?.trim();if(!n){alert('Informe o nome');return;}await updCliente(id,{nome:n,telefone:savePhone(el('ecTel')?.value||'')});closeModal('moEC');renderScreen();toast('Atualizado!');}
-function modNewProd(){document.body.insertAdjacentHTML('beforeend',`<div class="moverlay" id="moNP" onclick="if(event.target===this)closeModal('moNP')"><div class="modal"><button class="mclose" onclick="closeModal('moNP')">&#x2715;</button><div class="mtit">Novo Produto</div><div class="fg"><label class="flabel">Nome *</label><input class="finput" id="npNome"></div><div style="display:flex;gap:10px"><div class="fg" style="flex:1"><label class="flabel">Custo (R$)</label><input class="finput" id="npCusto" type="number" min="0" step="0.01"></div><div class="fg" style="flex:1"><label class="flabel">Venda (R$)</label><input class="finput" id="npPreco" type="number" min="0" step="0.01"></div></div><button class="btn btn-pri" onclick="savNP()">Salvar</button></div></div>`);}
-async function savNP(){const n=el('npNome')?.value?.trim();if(!n){alert('Informe o nome');return;}await addProduto({nome:n,preco:parseFloat(el('npPreco')?.value)||0,custo:parseFloat(el('npCusto')?.value)||0});closeModal('moNP');renderScreen();toast('Produto salvo!');}
-function modEditProd(id){const p=produtos.find(x=>x.id===id);if(!p)return;document.body.insertAdjacentHTML('beforeend',`<div class="moverlay" id="moEP" onclick="if(event.target===this)closeModal('moEP')"><div class="modal"><button class="mclose" onclick="closeModal('moEP')">&#x2715;</button><div class="mtit">Editar Produto</div><div class="fg"><label class="flabel">Nome</label><input class="finput" id="epNome" value="${escH(p.nome)}"></div><div style="display:flex;gap:10px"><div class="fg" style="flex:1"><label class="flabel">Custo (R$)</label><input class="finput" id="epCusto" type="number" value="${p.custo||0}" min="0" step="0.01"></div><div class="fg" style="flex:1"><label class="flabel">Venda (R$)</label><input class="finput" id="epPreco" type="number" value="${p.preco||0}" min="0" step="0.01"></div></div><button class="btn btn-pri" onclick="saveEP('${id}')">Salvar</button></div></div>`);}
-async function saveEP(id){const n=el('epNome')?.value?.trim();if(!n){alert('Informe o nome');return;}await updProduto(id,{nome:n,preco:parseFloat(el('epPreco')?.value)||0,custo:parseFloat(el('epCusto')?.value)||0});closeModal('moEP');renderScreen();toast('Atualizado!');}
-
-// ── WIZARD ──────────────────────────────────────────────
-function startWiz(){wiz={step:1,cliente:null,produto:null,preco:'',qtd:1,forma:'Pix',nParc:1,dataInicio:todayStr(),prazo:'mensal',editandoId:null};nav('nova-venda');}
-function getWV(){const p=el('wPreco'),q=el('wQtd'),n=el('wParc');if(p)wiz.preco=p.value;if(q)wiz.qtd=Math.max(1,parseInt(q.value)||1);if(n)wiz.nParc=Math.max(1,parseInt(n.value)||1);}
-function renderWiz(){const dots=[1,2,3].map(s=>`<div class="step-dot" style="width:${s===wiz.step?32:8}px;background:${s===wiz.step?'var(--org)':s<wiz.step?'var(--grn)':'var(--bdr)'}"></div>`).join('');var tit=wiz.editandoId?'<div style="text-align:center;font-weight:700;color:var(--org);font-size:13px;margin-bottom:4px">&#x270E; Editando venda</div>':'';return tit+`<div class="steps">${dots}</div>${wiz.step===1?renderW1():wiz.step===2?renderW2():renderW3()}`;}
-function renderW1(){
-  const FORMAS=['Pix','Dinheiro','Cartao','Boleto','Fiado'];
-  const PRAZOS=[{k:'mensal',l:'Mensal'},{k:'quinzenal',l:'Quinzenal'},{k:'semanal',l:'Semanal'},{k:'30dias',l:'30 em 30'}];
-  const fC=FORMAS.map(f=>`<button class="chip ${wiz.forma===f?'on':''}" onclick="getWV();wiz.forma='${f}';renderScreen()">${f}</button>`).join('');
-  const pC=PRAZOS.map(p=>`<button class="chip ${wiz.prazo===p.k?'on':''}" onclick="getWV();wiz.prazo='${p.k}';renderScreen()">${p.l}</button>`).join('');
-  return `<div class="card"><div style="font-size:17px;font-weight:700;margin-bottom:18px">&#x1F464; Cliente e Produto</div><div class="fg"><label class="flabel">Cliente</label><button class="finput" style="text-align:left;cursor:pointer;display:block;width:100%" onclick="modCliWiz()">${wiz.cliente?escH(wiz.cliente.nome):'Selecionar cliente...'}</button></div><div class="fg"><label class="flabel">Produto / Serviço</label><button class="finput" style="text-align:left;cursor:pointer;display:block;width:100%" onclick="modProdWiz()">${wiz.produto?escH(wiz.produto.nome):'Selecionar produto...'}</button></div>${wiz.produto?`<div style="display:flex;gap:10px"><div class="fg" style="flex:2"><label class="flabel">Valor (R$)</label><input class="finput" id="wPreco" type="number" value="${wiz.preco}" placeholder="0.00" min="0" step="0.01"></div><div class="fg" style="flex:1"><label class="flabel">Qtd</label><input class="finput" id="wQtd" type="number" value="${wiz.qtd}" min="1" step="1"></div></div><div class="fg"><label class="flabel">Pagamento</label><div class="chips">${fC}</div></div><div style="display:flex;gap:10px"><div class="fg" style="flex:1"><label class="flabel">Parcelas</label><input class="finput" id="wParc" type="number" value="${wiz.nParc}" min="1" step="1"></div><div class="fg" style="flex:1"><label class="flabel">1ª Parcela</label><input class="finput" type="date" value="${wiz.dataInicio}" onchange="wiz.dataInicio=this.value"></div></div><div class="fg"><label class="flabel">Prazo</label><div class="chips">${pC}</div></div>`:''}<button class="btn btn-pri" onclick="avancarW1()">Ver Calendário &#x2192;</button></div>`;
-}
-function avancarW1(){getWV();const t=(parseFloat(wiz.preco)||0)*wiz.qtd;if(!wiz.produto){toast('Selecione um produto');return;}if(t<=0){toast('Informe o valor');return;}wiz.step=2;renderScreen();}
-function calcVenc(){const ds=[];for(let i=0;i<wiz.nParc;i++){let d;if(wiz.prazo==='mensal')d=addMonths(wiz.dataInicio,i);else if(wiz.prazo==='semanal')d=addDays(wiz.dataInicio,i*7);else if(wiz.prazo==='quinzenal')d=addDays(wiz.dataInicio,i*15);else d=addDays(wiz.dataInicio,i*30);ds.push(d);}return ds;}
-function renderW2(){const t=(parseFloat(wiz.preco)||0)*wiz.qtd;const vP=parseFloat((t/wiz.nParc).toFixed(2));const rows=calcVenc().map((d,i)=>`<div class="prow"><div class="pnum">${i+1}</div><div class="pinfo"><div class="pdate">${fmtDate(d)}</div><div class="ppay">${wiz.forma}</div></div><div class="pval">${fmt(vP)}</div></div>`).join('');return `<div class="card"><div style="font-size:17px;font-weight:700;margin-bottom:18px">&#x1F4C5; Calendário</div><div style="max-height:340px;overflow-y:auto;margin-bottom:14px">${rows}</div><div class="btn-row"><button class="btn btn-sec" onclick="wiz.step=1;renderScreen()">&#x2190; Voltar</button><button class="btn btn-pri" style="flex:2" onclick="wiz.step=3;renderScreen()">Confirmar &#x2192;</button></div></div>`;}
-function renderW3(){const t=(parseFloat(wiz.preco)||0)*wiz.qtd;const vP=parseFloat((t/wiz.nParc).toFixed(2));const PL={mensal:'Mensal',quinzenal:'Quinzenal',semanal:'Semanal','30dias':'30 em 30'};return `<div class="card"><div style="font-size:17px;font-weight:700;margin-bottom:18px">&#x2705; Confirmar</div><div style="background:var(--light);border-radius:11px;padding:14px;margin-bottom:14px"><div class="prev-row"><span class="prev-label">Cliente</span><span class="prev-val">${wiz.cliente?escH(wiz.cliente.nome):'Nao informado'}</span></div><div class="prev-row"><span class="prev-label">Produto</span><span class="prev-val">${escH(wiz.produto?.nome||'')}</span></div><div class="prev-row"><span class="prev-label">Total</span><span class="prev-val" style="color:var(--org);font-size:18px">${fmt(t)}</span></div><div class="prev-row"><span class="prev-label">Parcelas</span><span class="prev-val">${wiz.nParc}x ${fmt(vP)}</span></div><div class="prev-row"><span class="prev-label">Pagamento</span><span class="prev-val">${wiz.forma} · ${PL[wiz.prazo]}</span></div></div><div class="btn-row"><button class="btn btn-sec" onclick="wiz.step=2;renderScreen()">&#x2190; Voltar</button><button class="btn btn-ok" style="flex:2" id="btnFin" onclick="finWiz()">&#x2713; Finalizar</button></div></div>`;}
-async function salvarEdicaoVenda(t,btn){
-  var id=wiz.editandoId;
-  var upd={clienteid:wiz.cliente?wiz.cliente.id:null,produto:wiz.produto.nome,preco:parseFloat(wiz.preco),qtd:wiz.qtd,total:t,custo:(wiz.produto.custo||0)*wiz.qtd};
-  await supa.from('vendas').update(upd).eq('id',id);
-  var vi=vendas.findIndex(function(v){return v.id===id;});
-  if(vi>=0)Object.assign(vendas[vi],upd);
-  param=id;nav('venda-detail',id);toast('Venda atualizada!');
-}
-
-async function finWiz(){
-  const btn=el('btnFin');if(btn)btn.disabled=true;
-  const t=(parseFloat(wiz.preco)||0)*wiz.qtd;
-  if(wiz.editandoId){await salvarEdicaoVenda(t,btn);return;}
-  const vP=parseFloat((t/wiz.nParc).toFixed(2));
-  const num=(vendas.length?Math.max(...vendas.map(v=>v.numero)):3300)+1;
-  const id=genId();
-  await addVenda({id,numero:num,clienteid:wiz.cliente?.id||null,produto:wiz.produto.nome,preco:parseFloat(wiz.preco),qtd:wiz.qtd,total:t,custo:(wiz.produto?.custo||0)*wiz.qtd,data:todayStr()});
-  const venc=calcVenc();
-  for(let i=0;i<venc.length;i++)await addParcela({id:genId(),vendaid:id,numero:i+1,vencimento:venc[i],pagamento:wiz.forma,valor:vP,pago:false,datapagamento:null});
-  param=id;nav('venda-detail',id);toast('Venda criada!');
-}
-function selCliWiz(id){var c=clientes.find(function(x){return x.id===id;});if(c){wiz.cliente={id:c.id,nome:c.nome};closeModal('moCW');renderScreen();}}
-function modCliWiz(){
-  var opts='';
-  clientes.forEach(function(c){
-    var tel=c.telefone?'<br><small style="color:var(--gray)">'+fmtPhone(c.telefone)+'</small>':'';
-    opts+='<div class="litem cp" onclick="selCliWiz(\''+c.id+'\')">'+escH(c.nome)+tel+'</div>';
-  });
-  var empty='<div style="padding:16px;text-align:center;color:var(--gray)">Nenhum cliente</div>';
-  document.body.insertAdjacentHTML('beforeend',
-    '<div class="moverlay" id="moCW" onclick="if(event.target===this)closeModal(\'moCW\')">'+
-    '<div class="modal" style="position:relative;padding-bottom:70px">'+
-    '<button class="mclose" onclick="closeModal(\'moCW\')">&#x2715;</button>'+
-    '<div class="mtit">Selecionar Cliente</div>'+
-    '<input class="finput" placeholder="Buscar..." oninput="srch(this,\'cWl\')" style="margin-bottom:10px">'+
-    '<div class="lwrap" id="cWl">'+(opts||empty)+'</div>'+
-    '<button onclick="closeModal(\'moCW\');modNCliWiz()" style="position:sticky;bottom:0;left:100%;transform:translateX(-100%);margin-top:12px;background:var(--org);color:#fff;border:none;border-radius:50%;width:52px;height:52px;font-size:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:300;box-shadow:0 4px 16px rgba(255,107,0,.45);flex-shrink:0">+</button>'+
-    '</div></div>'
-  );
-}
-function modNCliWiz(){
-  var html='<div class="moverlay" id="moCWN">';
-  html+='<div class="modal">';
-  html+='<button class="mclose" onclick="closeModal(\'moCWN\')">&#x2715;</button>';
-  html+='<div class="mtit">Novo Cliente</div>';
-  html+='<div class="fg"><label class="flabel">Nome *</label><input class="finput" id="wcNome"></div>';
-  html+='<div class="fg"><label class="flabel">WhatsApp</label><input class="finput" id="wcTel" type="tel" placeholder="(19) 99999-9999" oninput="fmtWhats(this)"></div>';
-  html+='<button class="btn btn-pri" onclick="savWCli()">Salvar</button>';
-  html+='</div></div>';
-  document.body.insertAdjacentHTML('beforeend',html);
-}
-
-async function savWCli(){const n=el('wcNome')?.value?.trim();if(!n){alert('Informe o nome');return;}const c=await addCliente({nome:n,telefone:savePhone(el('wcTel')?.value||'')});wiz.cliente=c;closeModal('moCWN');renderScreen();}
-function selProdWiz(id){var p=produtos.find(function(x){return x.id===id;});if(p){wiz.produto={id:p.id,nome:p.nome,custo:p.custo||0};wiz.preco=String(p.preco);closeModal('moPW');renderScreen();}}
-function modProdWiz(){
-  var opts='';
+  // Seção por produto
+  var prodRows='';
   produtos.forEach(function(p){
-    opts+='<div class="litem cp" style="display:flex;justify-content:space-between" onclick="selProdWiz(\''+p.id+'\')">'+
-          '<span>'+escH(p.nome)+'</span>'+
-          '<span style="color:var(--org);font-weight:700">'+fmt(p.preco)+'</span></div>';
+    var mp=msgsProdutos.find(function(m){return m.produto_nome===p.nome;})||{};
+    var pmh=mp.msg_hoje||'';
+    var pma=mp.msg_amanha||'';
+    prodRows+='<div class="card" style="margin-bottom:10px">'+
+      '<div style="font-size:13px;font-weight:700;margin-bottom:10px">📦 '+escH(p.nome)+'</div>'+
+      '<div class="fg"><label class="flabel" style="color:var(--red)">Vence Hoje</label>'+
+      '<textarea class="finput" id="pm_h_'+p.id+'" rows="4" style="resize:vertical;font-size:12px">'+escH(pmh)+'</textarea></div>'+
+      '<div class="fg"><label class="flabel" style="color:var(--org)">Vence Amanhã</label>'+
+      '<textarea class="finput" id="pm_a_'+p.id+'" rows="4" style="resize:vertical;font-size:12px">'+escH(pma)+'</textarea></div>'+
+      '<button class="btn btn-sec" style="font-size:12px;padding:8px" onclick="salvarMsgProduto(\''+p.id+'\',\''+escH(p.nome)+'\')">Salvar esta mensagem</button>'+
+      '</div>';
   });
-  var empty='<div style="padding:16px;text-align:center;color:var(--gray)">Nenhum produto</div>';
-  document.body.insertAdjacentHTML('beforeend',
-    '<div class="moverlay" id="moPW" onclick="if(event.target===this)closeModal(\'moPW\')">'+
-    '<div class="modal">'+
-    '<button class="mclose" onclick="closeModal(\'moPW\')">&#x2715;</button>'+
-    '<div class="mtit">Selecionar Produto</div>'+
-    '<input class="finput" placeholder="Buscar..." oninput="srch(this,\'pWl\')" style="margin-bottom:10px">'+
-    '<div class="lwrap" id="pWl">'+(opts||empty)+'</div>'+
-    '<button class="btn btn-pri" style="margin-top:10px" onclick="closeModal(\'moPW\');modNProdWiz()">+ Cadastrar Novo</button>'+
-    '</div></div>'
-  );
-}
-function modNProdWiz(){document.body.insertAdjacentHTML('beforeend',`<div class="moverlay" id="moPWN" onclick="if(event.target===this)closeModal('moPWN')"><div class="modal"><button class="mclose" onclick="closeModal('moPWN')">&#x2715;</button><div class="mtit">Novo Produto</div><div class="fg"><label class="flabel">Nome *</label><input class="finput" id="wpNome"></div><div style="display:flex;gap:10px"><div class="fg" style="flex:1"><label class="flabel">Custo</label><input class="finput" id="wpCusto" type="number" min="0"></div><div class="fg" style="flex:1"><label class="flabel">Venda</label><input class="finput" id="wpPreco" type="number" min="0"></div></div><button class="btn btn-pri" onclick="savWProd()">Salvar</button></div></div>`);}
-async function savWProd(){const n=el('wpNome')?.value?.trim();if(!n){alert('Informe o nome');return;}const p=await addProduto({nome:n,preco:parseFloat(el('wpPreco')?.value)||0,custo:parseFloat(el('wpCusto')?.value)||0});wiz.produto={id:p.id,nome:p.nome,custo:p.custo||0};wiz.preco=p.preco.toString();closeModal('moPWN');renderScreen();}
-
-
-// ── EXPORTAR CSV ────────────────────────────────────────────────────
-// ── COBRANÇAS ─────────────────────────────────────────────────────────────────
-var MSG_HOJE_DEF='Olá *{nome}*! 👋\nSua parcela de *{produto}* ({parcela}) vence *hoje* no valor de *R$ {valor}*.\n\nPague via PIX 👇\n🔑 {pix}\n\nQualquer dúvida é só chamar! 😊';
-var MSG_AMANHA_DEF='Olá *{nome}*! 👋\nSua parcela de *{produto}* ({parcela}) vence *amanhã* no valor de *R$ {valor}*.\n\nPague via PIX 👇\n🔑 {pix}\n\nObrigado! 🙏';
-
-function renderCobrancas(){
-  var u=currentUser||{};
-  var mh=u.msg_hoje||MSG_HOJE_DEF;
-  var ma=u.msg_amanha||MSG_AMANHA_DEF;
-  var pix=u.pix_cobranca||'';
   return '<div class="card" style="margin-bottom:12px">'+
     '<div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--org)">&#x1F4B3; PIX para cobranças</div>'+
     '<div class="fg"><label class="flabel">Sua chave PIX</label>'+
     '<input class="finput" id="cbPix" value="'+escH(pix)+'" placeholder="Email, CPF, telefone ou chave aleatória"></div>'+
-    '<div style="background:var(--light);border-radius:10px;padding:10px;font-size:11px;color:var(--gray);margin-bottom:0">Esta chave aparecerá nas mensagens enviadas aos seus clientes.</div></div>'+
+    '<div style="background:var(--light);border-radius:10px;padding:10px;font-size:11px;color:var(--gray)">Esta chave aparecerá nas mensagens dos seus clientes.</div></div>'+
     '<div class="card" style="margin-bottom:12px">'+
-    '<div style="font-size:13px;font-weight:700;margin-bottom:6px;color:var(--red)">Mensagem Vence Hoje</div>'+
+    '<div style="font-size:13px;font-weight:700;margin-bottom:4px">💬 Mensagem Padrão <span style="font-size:11px;color:var(--gray);font-weight:400">(usada quando não há mensagem específica)</span></div>'+
     '<div style="font-size:11px;color:var(--gray);margin-bottom:8px">Variáveis: {nome} {produto} {valor} {parcela} {pix}</div>'+
-    '<textarea class="finput" id="cbMsgHoje" rows="6" style="resize:vertical;font-size:12px;line-height:1.5">'+escH(mh)+'</textarea></div>'+
-    '<div class="card" style="margin-bottom:12px">'+
-    '<div style="font-size:13px;font-weight:700;margin-bottom:6px;color:var(--org)">Mensagem Vence Amanhã</div>'+
-    '<div style="font-size:11px;color:var(--gray);margin-bottom:8px">Variáveis: {nome} {produto} {valor} {parcela} {pix}</div>'+
-    '<textarea class="finput" id="cbMsgAmanha" rows="6" style="resize:vertical;font-size:12px;line-height:1.5">'+escH(ma)+'</textarea></div>'+
-    '<button class="btn btn-pri" onclick="salvarCobrancas()">Salvar configurações</button>';
+    '<label class="flabel" style="color:var(--red)">Vence Hoje</label>'+
+    '<textarea class="finput" id="cbMsgHoje" rows="5" style="resize:vertical;font-size:12px;line-height:1.5;margin-bottom:10px">'+escH(mh)+'</textarea>'+
+    '<label class="flabel" style="color:var(--org)">Vence Amanhã</label>'+
+    '<textarea class="finput" id="cbMsgAmanha" rows="5" style="resize:vertical;font-size:12px;line-height:1.5">'+escH(ma)+'</textarea></div>'+
+    '<button class="btn btn-pri" style="margin-bottom:16px" onclick="salvarCobrancas()">Salvar PIX e mensagem padrão</button>'+
+    (produtos.length?'<div style="font-size:14px;font-weight:700;margin-bottom:10px">📦 Mensagens por Produto</div>'+prodRows:
+    '<div class="card" style="text-align:center;color:var(--gray);font-size:13px">Cadastre produtos para configurar mensagens por produto.</div>');
+}
+async function salvarMsgProduto(prodId, prodNome){
+  var mh=(el('pm_h_'+prodId)&&el('pm_h_'+prodId).value)||'';
+  var ma=(el('pm_a_'+prodId)&&el('pm_a_'+prodId).value)||'';
+  var uid=currentUser.id;
+  var existing=msgsProdutos.find(function(m){return m.produto_nome===prodNome;});
+  if(existing){
+    await supa.from('msgs_produtos').update({msg_hoje:mh,msg_amanha:ma}).eq('id',existing.id);
+    existing.msg_hoje=mh;existing.msg_amanha=ma;
+  } else {
+    var novo={id:genId(),user_id:uid,produto_nome:prodNome,msg_hoje:mh,msg_amanha:ma};
+    await supa.from('msgs_produtos').insert(novo);
+    msgsProdutos.push(novo);
+  }
+  toast('Mensagem de "'+prodNome+'" salva!');
 }
 async function salvarCobrancas(){
   var upd={pix_cobranca:el('cbPix')&&el('cbPix').value||'',msg_hoje:el('cbMsgHoje')&&el('cbMsgHoje').value||MSG_HOJE_DEF,msg_amanha:el('cbMsgAmanha')&&el('cbMsgAmanha').value||MSG_AMANHA_DEF};
@@ -1720,7 +973,7 @@ function buildMsg(tpl,nome,produto,valor,numParc,totParc,pix){
 function abrirDisparo(){
   var t=todayStr();
   var amanha=new Date();amanha.setDate(amanha.getDate()+1);
-  var amanhaStr=amanha.toISOString().slice(0,10);
+  var amanhaStr=`${amanha.getFullYear()}-${String(amanha.getMonth()+1).padStart(2,'0')}-${String(amanha.getDate()).padStart(2,'0')}`;
   var u=currentUser||{};
   var pix=u.pix_cobranca||'';
   var mh=u.msg_hoje||MSG_HOJE_DEF;
@@ -1735,7 +988,9 @@ function abrirDisparo(){
     var nome=cli?cli.nome:'—';
     var prod=v?v.produto:'';
     var val=fmt(p.valor);
-    var tpl=tipo==='hoje'?mh:ma;
+    // Buscar mensagem específica do produto
+    var mprod=msgsProdutos.find(function(m){return m.produto_nome===prod;});
+    var tpl=tipo==='hoje'?(mprod&&mprod.msg_hoje?mprod.msg_hoje:mh):(mprod&&mprod.msg_amanha?mprod.msg_amanha:ma);
     var msg=buildMsg(tpl,nome,prod,val,p.numero,tp,pix);
     return {id:p.id,nome:nome,prod:prod,val:val,tel:tel,msg:msg,tipo:tipo};
   }
