@@ -264,12 +264,11 @@ const toast = msg => { const t=document.createElement('div'); t.className='toast
 const fmtPhone = raw => { const d=raw.replace(/\D/g,'').replace(/^55/,''); if(d.length===11) return '+55 '+d.slice(0,2)+' '+d.slice(2,7)+'-'+d.slice(7); if(d.length===10) return '+55 '+d.slice(0,2)+' '+d.slice(2,6)+'-'+d.slice(6); return raw; };
 const savePhone = raw => { const d=raw.replace(/\D/g,''); if(d.startsWith('55')&&d.length>=12) return '+'+d; if(d.length>=10) return '+55'+d; return raw; };
 function fmtWhats(inp){
-  var d=inp.value.replace(/\D/g,'');
-  if(d.length===0){inp.value='';return;}
-  var s='(';
-  if(d.length>=2)s='('+d.slice(0,2)+') ';
-  if(d.length>2)s+=(d.length<=6?d.slice(2):d.slice(2,7));
-  if(d.length>7)s+='-'+d.slice(7,11);
+  var d=inp.value.replace(/\D/g,'').slice(0,11);
+  if(!d){inp.value='';return;}
+  var s=d;
+  if(d.length>7)s='('+d.slice(0,2)+') '+d.slice(2,7)+'-'+d.slice(7);
+  else if(d.length>2)s='('+d.slice(0,2)+') '+d.slice(2);
   inp.value=s;
 }
 
@@ -486,8 +485,20 @@ async function loadAll(){
   // Carregar parcelas apenas das vendas deste usuário
   var vids=vendas.map(function(v){return v.id;});
   if(vids.length>0){
-    var rpa=await supa.from('parcelas').select('*').in('vendaid',vids);
-    parcelas=rpa.data||[];
+    // Carregar em lotes para evitar limite de 1000 linhas do Supabase
+    var allParc=[];
+    var batchSize=100; // lotes de venda IDs
+    for(var bi=0;bi<vids.length;bi+=batchSize){
+      var batch=vids.slice(bi,bi+batchSize);
+      var from=0,pageSize=1000;
+      while(true){
+        var rpa=await supa.from('parcelas').select('*').in('vendaid',batch).range(from,from+pageSize-1);
+        allParc=allParc.concat(rpa.data||[]);
+        if(!rpa.data||rpa.data.length<pageSize)break;
+        from+=pageSize;
+      }
+    }
+    parcelas=allParc;
   } else {
     parcelas=[];
   }
@@ -930,14 +941,7 @@ function renderCobrancas(){
     '<textarea class="finput" id="cbMsgAmanha" rows="6" style="resize:vertical;font-size:13px;line-height:1.5">'+escH(ma)+'</textarea></div>'+
     '<button class="btn btn-pri" onclick="salvarCobrancas()">Salvar configurações</button>';
 }
-async function salvarMsgProduto(prodId,prodNome){
-  var mhp=(el('pm_h_'+prodId)&&el('pm_h_'+prodId).value)||'';
-  var map2=(el('pm_a_'+prodId)&&el('pm_a_'+prodId).value)||'';
-  var ex=msgsProdutos.find(function(m){return m.produto_nome===prodNome;});
-  if(ex){await supa.from('msgs_produtos').update({msg_hoje:mhp,msg_amanha:map2}).eq('id',ex.id);ex.msg_hoje=mhp;ex.msg_amanha=map2;}
-  else{var nv={id:genId(),user_id:currentUser.id,produto_nome:prodNome,msg_hoje:mhp,msg_amanha:map2};await supa.from('msgs_produtos').insert(nv);msgsProdutos.push(nv);}
-  toast('Mensagem de "'+prodNome+'" salva!');
-}
+
 async function salvarCobrancas(){
   var upd={
     pix_cobranca:el('cbPix')&&el('cbPix').value||'',
@@ -1715,7 +1719,7 @@ function renderCobrancas(){
       '<textarea class="finput" id="pm_h_'+p.id+'" rows="4" style="resize:vertical;font-size:12px;margin-bottom:10px">'+escH(mp.msg_hoje||'')+'</textarea>'+
       '<label class="flabel" style="color:var(--org)">Vence Amanhã</label>'+
       '<textarea class="finput" id="pm_a_'+p.id+'" rows="4" style="resize:vertical;font-size:12px;margin-bottom:10px">'+escH(mp.msg_amanha||'')+'</textarea>'+
-      '<button class="btn btn-sec" style="font-size:12px" onclick="salvarMsgProduto(\''+p.id+'\',\''+escH(p.nome)+'\')">Salvar esta mensagem</button>'+
+      '<button class="btn btn-sec" style="font-size:12px" onclick="salvarMsgProduto(\''+p.id+'\')"  >Salvar esta mensagem</button>'+
       '</div></div>';
   });
   return '<div class="card" style="margin-bottom:12px">'+
@@ -1734,13 +1738,28 @@ function renderCobrancas(){
     '<div style="font-size:14px;font-weight:700;margin-bottom:10px">📦 Mensagens por Produto</div>'+
     (produtos.length?prodRows:'<div class="card" style="text-align:center;color:var(--gray);font-size:13px">Cadastre produtos para configurar mensagens específicas.</div>');
 }
-async function salvarMsgProduto(prodId,prodNome){
+async function salvarMsgProduto(prodId){
+  var prod=produtos.find(function(p){return p.id===prodId;});if(!prod)return;
+  var prodNome=prod.nome;
   var mhp=(el('pm_h_'+prodId)&&el('pm_h_'+prodId).value)||'';
   var map2=(el('pm_a_'+prodId)&&el('pm_a_'+prodId).value)||'';
-  var ex=msgsProdutos.find(function(m){return m.produto_nome===prodNome;});
-  if(ex){await supa.from('msgs_produtos').update({msg_hoje:mhp,msg_amanha:map2}).eq('id',ex.id);ex.msg_hoje=mhp;ex.msg_amanha=map2;}
-  else{var nv={id:genId(),user_id:currentUser.id,produto_nome:prodNome,msg_hoje:mhp,msg_amanha:map2};await supa.from('msgs_produtos').insert(nv);msgsProdutos.push(nv);}
-  toast('Mensagem de "'+prodNome+'" salva!');
+  try{
+    var ex=msgsProdutos.find(function(m){return m.produto_nome===prodNome;});
+    if(ex){
+      var ru=await supa.from('msgs_produtos').update({msg_hoje:mhp,msg_amanha:map2}).eq('id',ex.id);
+      if(ru.error)throw ru.error;
+      ex.msg_hoje=mhp;ex.msg_amanha=map2;
+    } else {
+      var nv={id:genId(),user_id:currentUser.id,produto_nome:prodNome,msg_hoje:mhp,msg_amanha:map2};
+      var ri=await supa.from('msgs_produtos').insert(nv);
+      if(ri.error)throw ri.error;
+      msgsProdutos.push(nv);
+    }
+    toast('✅ Mensagem de "'+prodNome+'" salva!');
+  } catch(e){
+    console.error('Erro salvarMsgProduto:',e);
+    toast('❌ Erro ao salvar: '+(e.message||JSON.stringify(e)));
+  }
 }
 async function salvarCobrancas(){
   var upd={pix_cobranca:el('cbPix')&&el('cbPix').value||'',msg_hoje:el('cbMsgHoje')&&el('cbMsgHoje').value||MSG_HOJE_DEF,msg_amanha:el('cbMsgAmanha')&&el('cbMsgAmanha').value||MSG_AMANHA_DEF};
