@@ -430,7 +430,7 @@ function togglePrivacy(){
 
 let screen='home', param=null, finTab='hoje';
 let homeFilter='mes', homeDe='', homeAte='';
-let vendasFilter='mes', vendasDe='', vendasAte='';
+let vendasFilter='todos', vendasDe='', vendasAte='';
 let relMes=todayStr().slice(0,7);
 var msgsProdutos=[];
 let wiz={step:1,cliente:null,produto:null,preco:'',qtd:1,forma:'Pix',nParc:1,dataInicio:todayStr(),prazo:'mensal',editandoId:null};
@@ -1592,7 +1592,28 @@ function perguntarWpp(pid){
 }
 
 function confDel(id){document.body.insertAdjacentHTML('beforeend',`<div class="moverlay" id="moDel" onclick="if(event.target===this)closeModal('moDel')"><div class="modal"><div class="mtit">Excluir venda?</div><p style="text-align:center;font-size:13px;color:var(--gray);margin-bottom:18px">Exclui a venda e todas as parcelas.</p><div class="btn-row"><button class="btn btn-sec" onclick="closeModal('moDel')">Cancelar</button><button class="btn btn-danger" onclick="delVenda('${id}').then(()=>closeModal('moDel'))">Excluir</button></div></div></div>`);}
-function srchF(inp,lid){const q=inp.value.toLowerCase();document.querySelectorAll('#'+lid+' .fitem').forEach(i=>i.style.display=i.textContent.toLowerCase().includes(q)?'':'none');}
+function srchF(inp,lid){
+  const q=inp.value.toLowerCase();
+  document.querySelectorAll('#'+lid+' .fitem').forEach(i=>i.style.display=i.textContent.toLowerCase().includes(q)?'':'none');
+  // Esconder grupos de data que ficaram sem itens visíveis
+  const container=document.getElementById(lid);
+  if(!container)return;
+  const children=Array.from(container.children);
+  let i=0;
+  while(i<children.length){
+    const child=children[i];
+    if(child.classList.contains('date-sep')){
+      const group=children[i+1];
+      if(group&&group.classList.contains('lwrap')){
+        const hasVisible=Array.from(group.querySelectorAll('.fitem')).some(f=>f.style.display!=='none');
+        child.style.display=hasVisible?'':'none';
+        group.style.display=hasVisible?'':'none';
+        i+=2;continue;
+      }
+    }
+    i++;
+  }
+}
 function srch(inp,lid){const q=inp.value.toLowerCase();document.querySelectorAll('#'+lid+' .litem').forEach(i=>i.style.display=i.textContent.toLowerCase().includes(q)?'':'none');}
 
 // ── MODAIS CADASTRO ──────────────────────────────────────
