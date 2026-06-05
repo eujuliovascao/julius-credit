@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>AgiVendas</title>
 <link rel="icon" type="image/png" href="/icon.png">
 <link rel="apple-touch-icon" sizes="512x512" href="/icon.png">
@@ -28,8 +28,8 @@ html,body{height:100%;background:#f0f2f5;font-family:'Poppins',sans-serif;color:
 .hdr h1{font-size:17px;font-weight:700}
 .ibtn{background:rgba(255,255,255,.2);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;font-size:18px}
 .content{flex:1;padding:14px;padding-bottom:80px;overflow-y:auto}
-.bnav{background:#fff;border-top:1px solid var(--bdr);display:flex;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;z-index:100;box-shadow:0 -2px 10px rgba(0,0,0,.06)}
-.nitem{flex:1;display:flex;flex-direction:column;align-items:center;padding:9px 4px 7px;cursor:pointer;border:none;background:none;color:var(--gray);font-family:'Poppins',sans-serif;font-size:10px;font-weight:600;gap:2px;position:relative}
+.bnav{background:#fff;border-top:1px solid var(--bdr);display:flex;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;z-index:100;box-shadow:0 -2px 10px rgba(0,0,0,.06);padding-bottom:env(safe-area-inset-bottom)}
+.nitem{flex:1;display:flex;flex-direction:column;align-items:center;padding:9px 4px 6px;cursor:pointer;border:none;background:none;color:var(--gray);font-family:'Poppins',sans-serif;font-size:10px;font-weight:600;gap:2px;position:relative}
 .nitem.active{color:var(--org)}
 .nitem svg{width:20px;height:20px}
 .nbadge{position:absolute;top:5px;right:calc(50% - 16px);background:var(--red);color:#fff;border-radius:10px;font-size:9px;font-weight:700;padding:1px 4px;min-width:15px;text-align:center;line-height:1.4}
@@ -66,7 +66,7 @@ html,body{height:100%;background:#f0f2f5;font-family:'Poppins',sans-serif;color:
 .sec{display:flex;justify-content:space-between;align-items:center;margin:4px 0 8px}
 .sectit{font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.7px}
 .seclink{font-size:12px;color:var(--org);font-weight:600;cursor:pointer;background:none;border:none;font-family:'Poppins',sans-serif}
-.fab{position:fixed;bottom:68px;right:calc(50% - 205px);width:52px;height:52px;background:var(--org);color:#fff;border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 18px rgba(255,107,0,.4);font-size:24px;z-index:99}
+.fab{position:fixed;bottom:calc(68px + env(safe-area-inset-bottom));right:calc(50% - 205px);width:52px;height:52px;background:var(--org);color:#fff;border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 18px rgba(255,107,0,.4);font-size:24px;z-index:99}
 .fab:active{transform:scale(.93)}
 .fg{margin-bottom:14px}
 .flabel{font-size:11px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;display:block}
@@ -161,7 +161,7 @@ html,body{height:100%;background:#f0f2f5;font-family:'Poppins',sans-serif;color:
 
 #loading{position:fixed;inset:0;background:var(--org);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;gap:12px;z-index:999;text-align:center;padding:20px}
 #loading h2{font-size:22px;font-weight:700}
-.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:999;font-family:'Poppins',sans-serif;white-space:nowrap;pointer-events:none}
+.toast{position:fixed;bottom:calc(90px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:999;font-family:'Poppins',sans-serif;white-space:nowrap;pointer-events:none}
 .rel-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
 .rel-card{background:#fff;border-radius:14px;padding:16px;box-shadow:var(--shd);display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;border:none;font-family:'Poppins',sans-serif;width:100%}
 .rel-card:active{background:var(--org-lt)}
