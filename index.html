@@ -889,13 +889,20 @@ function renderRelAL(){
 }
 
 function desfazerParcela(pid,modalId){
-  showConfirm('Estornar recebimento?','A parcela voltará a ser cobrada.',function(){
-    updParcela(pid,{pago:false,datapagamento:null}).then(function(){
+  var el=document.createElement('div');
+  el.id='modalEstornarConf';
+  el.className='moverlay';
+  el.innerHTML='<div class="modal" style="padding-bottom:30px"><div class="mtit" style="margin-bottom:8px">Estornar recebimento?</div><p style="font-size:13px;color:var(--gray);margin-bottom:18px">A parcela voltará a ser cobrada.</p><div class="btn-row"><button class="btn btn-sec" id="btnEstornarCancel">Cancelar</button><button class="btn" style="background:var(--org);color:#fff" id="btnEstornarOk">Confirmar</button></div></div>';
+  document.body.appendChild(el);
+  el.querySelector('#btnEstornarCancel').addEventListener('click',function(){el.remove();});
+  el.querySelector('#btnEstornarOk').addEventListener('click',function(){
+    el.remove();
+    updParcela(pid,{pago:false,datapagamento:null,iptv_ativado:false}).then(function(){
       updBadge();renderScreen();
       var m=document.getElementById(modalId);if(m)m.remove();
       toast('Recebimento estornado!');
     });
-  },'var(--org)');
+  });
 }
 function relInadimplentes(){
   var t=todayStr();
