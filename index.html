@@ -24,7 +24,7 @@ const SUPA_KEY = "sb_publishable_NHbhzRRmqpUSV8He5bWCiQ_iT9Xneqy";
 html,body{height:100%;background:#f0f2f5;font-family:'Poppins',sans-serif;color:#1a1a2e}
 :root{--org:#FF6B00;--org-lt:#FFF3EB;--grn:#27AE60;--red:#E74C3C;--gray:#6c757d;--bdr:#e9ecef;--light:#f0f2f5;--shd:0 2px 12px rgba(0,0,0,.08)}
 #app{max-width:430px;margin:0 auto;min-height:100vh;background:var(--light);display:flex;flex-direction:column}
-.hdr{background:var(--org);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(255,107,0,.3)}
+.hdr{background:var(--org);color:#fff;padding:calc(14px + env(safe-area-inset-top,0px)) 18px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(255,107,0,.3)}
 .hdr h1{font-size:17px;font-weight:700}
 .ibtn{background:rgba(255,255,255,.2);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;font-size:18px}
 .content{flex:1;padding:14px;padding-bottom:80px;overflow-y:auto}
@@ -1244,12 +1244,37 @@ function toggleParc(pid){
 async function salvarParcelas(){
   const ids=Object.keys(pendingChanges);
   if(ids.length===0){showReciboModal(param);return;}
+  var novoPago=ids.filter(function(id){return pendingChanges[id]&&pendingChanges[id].pago===true;});
   for(var i=0;i<ids.length;i++){
     await updParcela(ids[i],pendingChanges[ids[i]]);
   }
   pendingChanges={};
   updBadge();
-  showReciboModal(param);
+  if(novoPago.length>0){
+    var pid=novoPago[0];
+    var parc=(typeof parcelas!=='undefined'?parcelas:[]).find(function(x){return x.id==pid;});
+    var vd=parc?((typeof vendas!=='undefined'?vendas:[]).find(function(x){return x.id==parc.vendaid;})):null;
+    var cl=vd?((typeof clientes!=='undefined'?clientes:[]).find(function(x){return x.id==vd.clienteid;})):null;
+    var vl=parc?parc.valor:0;
+    var nm=cl?cl.nome:'';
+    var el=document.createElement('div');
+    el.id='modalAtivarGS';
+    el.className='moverlay';
+    el.innerHTML='<div class="modal" style="padding-bottom:30px"><div style="text-align:center;margin-bottom:18px"><div style="font-size:42px">&#x2705;</div><div class="mtit" style="margin-bottom:6px">Pagamento confirmado!</div>'+(nm?'<div style="font-size:14px;color:var(--gray)">R$ '+vl.toFixed(2)+' - '+nm+'</div>':'')+'</div><div style="background:var(--org-lt);border-radius:12px;padding:14px;margin-bottom:18px;text-align:center"><div style="font-size:14px;font-weight:600;color:var(--org)">Ativar no gestor.rs agora?</div><div style="font-size:12px;color:var(--gray);margin-top:4px">O acesso sera renovado automaticamente</div></div><div class="btn-row"><button class="btn btn-sec" id="btnNaoGS">Nao agora</button><button class="btn btn-pri" id="btnSimGS">Sim, ativar</button></div></div>';
+    document.body.appendChild(el);
+    el.querySelector('#btnNaoGS').addEventListener('click',function(){
+      el.remove();
+      novoPago.forEach(function(id){updParcela(id,{iptv_ativado:true});});
+      showReciboModal(param);
+    });
+    el.querySelector('#btnSimGS').addEventListener('click',function(){
+      el.remove();
+      novoPago.forEach(function(id){updParcela(id,{iptv_ativado:false});});
+      showReciboModal(param);
+    });
+  } else {
+    showReciboModal(param);
+  }
 }
 function excluirParc(pid){
   showConfirm('Excluir parcela?','Esta ação não pode ser desfeita.',function(){
