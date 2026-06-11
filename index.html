@@ -1680,6 +1680,8 @@ async function salvarEdicaoVenda(t,btn){
   var id=wiz.editandoId;
   var upd={clienteid:wiz.cliente?wiz.cliente.id:null,produto:wiz.produto.nome,preco:parseFloat(wiz.preco),qtd:wiz.qtd,total:t,custo:(wiz.produto.custo||0)*wiz.qtd};
   await supa.from('vendas').update(upd).eq('id',id);
+if(upd.preco!==undefined){await supa.from('parcelas').update({valor:upd.preco}).eq('vendaid',id).eq('pago',false);parcelas=parcelas.map(function(p){return(p.vendaid===id&&!p.pago)?Object.assign({},p,{valor:upd.preco}):p;});}
+if(upd.preco!==undefined){await supa.from('parcelas').update({valor:upd.preco}).eq('vendaid',id).eq('pago',false);parcelas=parcelas.map(function(p){return(p.vendaid===id&&!p.pago)?Object.assign({},p,{valor:upd.preco}):p;});}
   var vi=vendas.findIndex(function(v){return v.id===id;});
   if(vi>=0)Object.assign(vendas[vi],upd);
   param=id;nav('venda-detail',id);toast('Venda atualizada!');
