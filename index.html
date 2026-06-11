@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#FF6B00">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content=h"black-translucent">
 <link rel="manifest" href="/manifest.json">
 <meta name="apple-mobile-web-app-title" content="AgiVendas">
 <script>
@@ -466,6 +466,7 @@ function gerarPix(chave,nome,cidade,valor){
 function showConfirm(titulo, msg, onOk, corBtn){
   var id='moCF'+Date.now();
   var cor=corBtn||'var(--red)';
+  window._cfCbs=window._cfCbs||{};window._cfCbs[id]=onOk;
   document.body.insertAdjacentHTML('beforeend',
     '<div class="moverlay" id="'+id+'" onclick="if(event.target===this)closeModal(\''+id+'\')">'+
     '<div class="modal" style="text-align:center">'+
@@ -474,7 +475,7 @@ function showConfirm(titulo, msg, onOk, corBtn){
     (msg?'<p style="font-size:13px;color:var(--gray);margin-bottom:18px">'+msg+'</p>':'')+
     '<div class="btn-row">'+
     '<button class="btn btn-sec" onclick="closeModal(\''+id+'\')">Cancelar</button>'+
-    '<button class="btn" style="background:'+cor+';color:#fff" onclick="closeModal(\''+id+'\');('+onOk+')()">Confirmar</button>'+
+    '<button class="btn" style="background:'+cor+';color:#fff" onclick="closeModal(\''+id+'\');window._cfCbs&&window._cfCbs[\''+id+'\'\']&&window._cfCbs[\''+id+'\'\']()">Confirmar</button>'+
     '</div></div></div>');
 }
 // ── DB ──────────────────────────────────────────────────
