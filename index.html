@@ -1717,7 +1717,8 @@ function modCliWiz(){
     '<button onclick="closeModal(\'moCW\');modNCliWiz()" style="position:sticky;bottom:0;left:100%;transform:translateX(-100%);margin-top:12px;background:var(--org);color:#fff;border:none;border-radius:50%;width:52px;height:52px;font-size:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:300;box-shadow:0 4px 16px rgba(255,107,0,.45);flex-shrink:0">+</button>'+
     '</div></div>'
   );
-}
+
+  if(window.visualViewport){var _vvCW=function(){var o=document.getElementById('moCW');if(!o){window.visualViewport.removeEventListener('resize',_vvCW);return;}var kb=window.innerHeight-window.visualViewport.height;o.style.bottom=kb+'px';};window.visualViewport.addEventListener('resize',_vvCW);}}
 function modNCliWiz(){
   var html='<div class="moverlay" id="moCWN">';
   html+='<div class="modal">';
