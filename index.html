@@ -437,7 +437,7 @@ let homeFilter='mes', homeDe='', homeAte='';
 let vendasFilter='todos', vendasDe='', vendasAte='';
 let relMes=todayStr().slice(0,7);
 var msgsProdutos=[];
-let wiz={step:1,cliente:null,produto:null,preco:'',qtd:1,forma:'Pix',nParc:1,dataInicio:todayStr(),prazo:'mensal',editandoId:null};
+let wiz={step:1,cliente:null,produto:null,preco:'',qtd:1,forma:'Pix',nParc:1,dataInicio:todayStr(),prazo:'mensal',editandoId:null,itens:[],primeiraParcela:0};
 
 
 // ── PIX & CONFIG ──────────────────────────────────────────────────────────────
@@ -607,7 +607,8 @@ function editarVenda(id){
     nParc:vp.length||1,
     dataInicio:vp[0]?vp[0].vencimento:todayStr(),
     prazo:'mensal',
-    editandoId:id
+    editandoId:id,
+    itens:[],primeiraParcela:0
   };
   nav('nova-venda');
 }
@@ -629,7 +630,8 @@ function modEditarVenda(id){
     forma:forma,
     nParc:pv.length||1,
     dataInicio:todayStr(),
-    prazo:'mensal'
+    prazo:'mensal',
+    itens:[],primeiraParcela:0
   };
   nav('nova-venda');
 }
@@ -639,7 +641,7 @@ function duplicarVenda(id){
   const cli=clientes.find(c=>c.id===v.clienteid);
   const vp=parcelas.filter(p=>p.vendaid===id).sort((a,b)=>a.numero-b.numero);
   // Pre-fill wizard for editing
-  wiz={step:1,cliente:cli||null,produto:{id:null,nome:v.produto,custo:v.custo||0},preco:String(v.preco||v.total),qtd:v.qtd||1,forma:vp[0]?.pagamento||'Pix',nParc:vp.length||1,dataInicio:vp[0]?vp[0].vencimento:todayStr(),prazo:'mensal',editandoId:null};
+  wiz={step:1,cliente:cli||null,produto:{id:null,nome:v.produto,custo:v.custo||0},preco:String(v.preco||v.total),qtd:v.qtd||1,forma:vp[0]?.pagamento||'Pix',nParc:vp.length||1,dataInicio:vp[0]?vp[0].vencimento:todayStr(),prazo:'mensal',editandoId:null,itens:[],primeiraParcela:0};
   nav('nova-venda');
   toast('Edite os dados e finalize para duplicar');
 }
@@ -1662,7 +1664,7 @@ function modEditProd(id){const p=produtos.find(x=>x.id===id);if(!p)return;docume
 async function saveEP(id){const n=el('epNome')?.value?.trim();if(!n){alert('Informe o nome');return;}await updProduto(id,{nome:n,preco:parseFloat(el('epPreco')?.value)||0,custo:parseFloat(el('epCusto')?.value)||0});closeModal('moEP');renderScreen();toast('Atualizado!');}
 
 // ── WIZARD ──────────────────────────────────────────────
-function startWiz(){wiz={step:1,cliente:null,produto:null,preco:'',qtd:1,forma:'Pix',nParc:1,dataInicio:todayStr(),prazo:'mensal',editandoId:null};nav('nova-venda');}
+function startWiz(){wiz={step:1,cliente:null,produto:null,preco:'',qtd:1,forma:'Pix',nParc:1,dataInicio:todayStr(),prazo:'mensal',editandoId:null,itens:[],primeiraParcela:0};nav('nova-venda');}
 function getWV(){const p=el('wPreco'),q=el('wQtd'),n=el('wParc');if(p)wiz.preco=p.value;if(q)wiz.qtd=Math.max(1,parseInt(q.value)||1);if(n)wiz.nParc=Math.max(1,parseInt(n.value)||1);}
 function renderWiz(){const dots=[1,2,3].map(s=>`<div class="step-dot" style="width:${s===wiz.step?32:8}px;background:${s===wiz.step?'var(--org)':s<wiz.step?'var(--grn)':'var(--bdr)'}"></div>`).join('');var tit=wiz.editandoId?'<div style="text-align:center;font-weight:700;color:var(--org);font-size:13px;margin-bottom:4px">&#x270E; Editando venda</div>':'';return tit+`<div class="steps">${dots}</div>${wiz.step===1?renderW1():wiz.step===2?renderW2():renderW3()}`;}
 function renderW1(){
@@ -2044,6 +2046,8 @@ function _mpFmt(v) {
 
 // ââ Step 1: seleÃ§Ã£o de produtos + configuraÃ§Ã£o âââââââââââââââââââââ
 function renderW1() {
+  if (!wiz.itens) wiz.itens = [];
+  if (wiz.primeiraParcela === undefined) wiz.primeiraParcela = 0;
   var FORMAS = ['Pix', 'Dinheiro', 'Cartao', 'Boleto', 'Fiado'];
   var PRAZOS = [
     {k:'mensal',l:'Mensal'}, {k:'quinzenal',l:'Quinzenal'},
@@ -2274,7 +2278,7 @@ async function finWiz() {
             nParc:1, dataInicio:todayStr(), prazo:'mensal', editandoId:null,
             itens:[], primeiraParcela:0 };
     param = id;
-    nav('venda-detalhe', id);
+    nav('venda-detail', id);
     toast('Venda criada!');
 
   } catch(err) {
