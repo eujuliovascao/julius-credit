@@ -2162,22 +2162,23 @@ function renderW2() {
 
   var itensRows = wiz.itens.map(function(i) {
     var q = i.qtd || 1;
-    return '<div class="row" style="justify-content:space-between;padding:3px 0;font-size:13px">'
-      + '<span>' + escH(i.nome) + (q>1?' x'+q:'') + '</span>'
-      + '<span style="font-weight:600">' + _mpFmt((i.venda||0)*q) + '</span></div>';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--bdr)">'
+      + '<span style="background:#FFF3EB;color:var(--org);font-size:11px;font-weight:700;padding:2px 7px;border-radius:8px;flex-shrink:0">' + q + '×</span>'
+      + '<span style="flex:1;font-size:13px">' + escH(i.nome) + '</span>'
+      + '<span style="font-size:13px;font-weight:700">' + _mpFmt((i.venda||0)*q) + '</span></div>';
   }).join('');
 
   return '<div class="card">'
     + '<div style="font-size:15px;font-weight:700;margin-bottom:8px">Itens da venda</div>'
     + itensRows
-    + '<div class="row" style="justify-content:space-between;margin-top:8px;padding-top:6px;border-top:1px solid var(--bdr);font-weight:700">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:6px;border-top:1px solid var(--bdr);font-weight:700">'
     + '<span>Total</span><span style="color:var(--org)">' + _mpFmt(_mpTotal()) + '</span></div>'
     + '</div>'
     + '<div class="card" style="margin-top:10px">'
     + '<div style="font-size:15px;font-weight:700;margin-bottom:8px">Parcelas (' + wiz.nParc + 'x &#x2022; ' + wiz.forma + ')</div>'
     + parcRows
     + '</div>'
-    + '<div class="row" style="gap:8px;margin-top:10px">'
+    + '<div style="display:flex;gap:8px;margin-top:10px">'
     + '<button class="btn btn-sec" onclick="wiz.step=1;renderScreen()">&#8592; Voltar</button>'
     + '<button class="btn btn-ok" style="flex:2" onclick="wiz.step=3;renderScreen()">Confirmar &#8594;</button>'
     + '</div>';
@@ -2188,33 +2189,34 @@ function renderW3() {
   var PL = {mensal:'Mensal',quinzenal:'Quinzenal',semanal:'Semanal','30dias':'30 em 30'};
   var itensRows = wiz.itens.map(function(i) {
     var q = i.qtd || 1;
-    return '<div class="row" style="justify-content:space-between;font-size:13px;padding:2px 0">'
-      + '<span>' + escH(i.nome) + (q>1?' x'+q:'') + '</span>'
-      + '<span style="font-weight:600">' + _mpFmt((i.venda||0)*q) + '</span></div>';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--bdr)">'
+      + '<span style="background:#FFF3EB;color:var(--org);font-size:11px;font-weight:700;padding:2px 7px;border-radius:8px;flex-shrink:0">' + q + '×</span>'
+      + '<span style="flex:1;font-size:13px">' + escH(i.nome) + '</span>'
+      + '<span style="font-size:13px;font-weight:700">' + _mpFmt((i.venda||0)*q) + '</span></div>';
   }).join('');
   var primLine = wiz.primeiraParcela > 0
-    ? '<div class="row" style="justify-content:space-between;margin-top:4px">'
-      + '<span style="color:var(--txt-lt)">1Âª parcela</span>'
+    ? '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">'
+      + '<span style="color:var(--txt-lt)">Entrada</span>'
       + '<span>' + _mpFmt(wiz.primeiraParcela) + '</span></div>'
     : '';
 
   return '<div class="card">'
     + '<div style="font-size:17px;font-weight:700;margin-bottom:12px">&#x2713; Confirmar venda</div>'
-    + '<div class="row" style="justify-content:space-between;margin-bottom:6px">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
     + '<span style="color:var(--txt-lt)">Cliente</span>'
     + '<span style="font-weight:600">' + (wiz.cliente ? escH(wiz.cliente.nome) : 'â') + '</span></div>'
     + '<div style="margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--bdr)">' + itensRows + '</div>'
-    + '<div class="row" style="justify-content:space-between;margin-bottom:4px;font-weight:700">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-weight:700">'
     + '<span>Total</span><span style="color:var(--org)">' + _mpFmt(_mpTotal()) + '</span></div>'
     + '<div class="row" style="justify-content:space-between;margin-bottom:4px">'
     + '<span style="color:var(--txt-lt)">Parcelas</span>'
     + '<span>' + wiz.nParc + 'x &#x2022; ' + wiz.forma + ' &#x2022; ' + (PL[wiz.prazo] || wiz.prazo) + '</span></div>'
     + '<div class="row" style="justify-content:space-between;margin-bottom:4px">'
-    + '<span style="color:var(--txt-lt)">InÃ­cio</span>'
+    + '<span style="color:var(--txt-lt)">In&#xED;cio</span>'
     + '<span>' + fmtDate(wiz.dataInicio) + '</span></div>'
     + primLine
     + '</div>'
-    + '<div class="row" style="gap:8px;margin-top:10px">'
+    + '<div style="display:flex;gap:8px;margin-top:10px">'
     + '<button class="btn btn-sec" onclick="wiz.step=2;renderScreen()">&#8592; Voltar</button>'
     + '<button class="btn btn-ok" style="flex:2" id="btnFin" onclick="finWiz()">&#x2713; Finalizar</button>'
     + '</div>';
@@ -2329,6 +2331,28 @@ function _mpTipoMensagem(itens_lista) {
 }
 
 // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
+// ── goBack override: navega etapas do wizard sem perder dados ────────────
+function goBack() {
+  if (screen === 'nova-venda') {
+    if (wiz.step > 1) { wiz.step--; renderScreen(); return; }
+    var ov = document.createElement('div');
+    ov.className = 'moverlay';
+    ov.id = 'ovCancelWiz';
+    ov.innerHTML = '<div class="modal" style="padding-bottom:30px">'
+      + '<div class="mtit" style="margin-bottom:8px">Cancelar venda?</div>'
+      + '<p style="font-size:13px;color:var(--gray);margin-bottom:18px">Os dados desta venda ser\u00e3o perdidos.</p>'
+      + '<div class="btn-row">'
+      + '<button class="btn btn-sec" onclick="document.getElementById(\'ovCancelWiz\').remove()">Continuar</button>'
+      + '<button class="btn btn-danger" onclick="document.getElementById(\'ovCancelWiz\').remove();nav(\'vendas\')">Cancelar venda</button>'
+      + '</div></div>';
+    document.body.appendChild(ov);
+    return;
+  }
+  var b = {produtos:'mais',relatorios:'mais','venda-detail':'vendas','venda-parcelas':'venda-detail','nova-venda':'vendas',configuracoes:'mais',conta:'configuracoes',empresa:'configuracoes',cobrancas:'configuracoes','meu-plano':'mais',gestor:'mais'};
+  nav(b[screen] || 'home');
+}
+
 // FIM DO MULTI-PRODUTO PATCH
 // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
