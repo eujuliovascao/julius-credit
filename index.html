@@ -1971,18 +1971,20 @@ if (wiz.primeiraParcela === undefined) wiz.primeiraParcela = 0;
 // ââ Helpers âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 function _mpTotal() {
-  return wiz.itens.reduce(function(s, i) { return s + (i.venda || 0); }, 0);
+  return wiz.itens.reduce(function(s, i) { return s + (i.venda || 0) * (i.qtd || 1); }, 0);
 }
 
 function _mpSalvarInputs() {
   wiz.itens = wiz.itens.map(function(item) {
     var cEl = el('mpCusto_' + item.id);
     var vEl = el('mpVenda_' + item.id);
+    var qEl = el('mpQtd_'   + item.id);
     return {
       id:    item.id,
       nome:  item.nome,
       custo: cEl ? (parseFloat(cEl.value) || 0) : item.custo,
       venda: vEl ? (parseFloat(vEl.value) || 0) : item.venda,
+      qtd:   qEl ? (parseInt(qEl.value)   || 1) : (item.qtd || 1),
     };
   });
   var ppEl = el('mpPrimParc');
@@ -2061,7 +2063,7 @@ function renderW1() {
   }).join('');
   var tit = wiz.editandoId ? '<div style="text-align:center;font-weight:700;color:var(--org);font-size:13px;margin-bottom:4px">&#x270E; Editando venda</div>' : '';
   var prodLabel = wiz.itens.length
-    ? wiz.itens.map(function(i){ return escH(i.nome); }).join(', ') + ' — ' + _mpFmt(_mpTotal())
+    ? wiz.itens.map(function(i){ return escH(i.nome) + ((i.qtd||1)>1?' x'+(i.qtd||1):''); }).join(', ') + ' — ' + _mpFmt(_mpTotal())
     : 'Selecionar produto...';
   return tit + '<div class="card">'
     + '<div style="font-size:17px;font-weight:700;margin-bottom:18px">&#x1F464; Cliente e Produto</div>'
@@ -2102,9 +2104,11 @@ function modProdWizMulti() {
       + ' onchange="_mpRowToggle(\'' + p.id + '\')">'
       + '<span style="font-size:15px;font-weight:500;flex:1">' + escH(p.nome) + '</span></label>'
       + '<div id="mpInputs_' + p.id + '" style="display:' + (sel ? 'flex' : 'none') + ';gap:8px;padding-bottom:10px">'
-      + '<div style="flex:1"><label style="font-size:11px;color:var(--txt-lt)">Custo</label>'
+      + '<div style="flex:0.7"><label style="font-size:11px;color:var(--txt-lt)">Qtd</label>'
+      + '<input id="mpM_qtd_' + p.id + '" type="number" min="1" step="1" value="' + (item ? (item.qtd||1) : 1) + '" class="finput" style="font-size:13px"></div>'
+      + '<div style="flex:1"><label style="font-size:11px;color:var(--txt-lt)">Custo (un.)</label>'
       + '<input id="mpM_custo_' + p.id + '" type="number" step="0.01" value="' + custo + '" class="finput" style="font-size:13px"></div>'
-      + '<div style="flex:1"><label style="font-size:11px;color:var(--txt-lt)">Venda</label>'
+      + '<div style="flex:1"><label style="font-size:11px;color:var(--txt-lt)">Venda (un.)</label>'
       + '<input id="mpM_venda_' + p.id + '" type="number" step="0.01" value="' + venda + '" class="finput" style="font-size:13px"></div>'
       + '</div></div>';
   }).join('');
@@ -2130,11 +2134,13 @@ function _mpModalConfirm() {
   produtos.forEach(function(p) {
     var chk = document.getElementById('mpM_chk_' + p.id);
     if (chk && chk.checked) {
+      var qtdEl   = document.getElementById('mpM_qtd_'   + p.id);
       var custoEl = document.getElementById('mpM_custo_' + p.id);
       var vendaEl = document.getElementById('mpM_venda_' + p.id);
       newItens.push({
         id:    p.id,
         nome:  p.nome,
+        qtd:   qtdEl   ? (parseInt(qtdEl.value)   || 1) : 1,
         custo: custoEl ? (parseFloat(custoEl.value) || 0) : (p.custo || 0),
         venda: vendaEl ? (parseFloat(vendaEl.value) || 0) : (p.preco || 0),
       });
@@ -2155,9 +2161,10 @@ function renderW2() {
   }).join('');
 
   var itensRows = wiz.itens.map(function(i) {
+    var q = i.qtd || 1;
     return '<div class="row" style="justify-content:space-between;padding:3px 0;font-size:13px">'
-      + '<span>' + escH(i.nome) + '</span>'
-      + '<span style="font-weight:600">' + _mpFmt(i.venda) + '</span></div>';
+      + '<span>' + escH(i.nome) + (q>1?' x'+q:'') + '</span>'
+      + '<span style="font-weight:600">' + _mpFmt((i.venda||0)*q) + '</span></div>';
   }).join('');
 
   return '<div class="card">'
@@ -2167,7 +2174,7 @@ function renderW2() {
     + '<span>Total</span><span style="color:var(--org)">' + _mpFmt(_mpTotal()) + '</span></div>'
     + '</div>'
     + '<div class="card" style="margin-top:10px">'
-    + '<div style="font-size:15px;font-weight:700;margin-bottom:8px">Parcelas (' + wiz.nParc + 'x â¢ ' + wiz.forma + ')</div>'
+    + '<div style="font-size:15px;font-weight:700;margin-bottom:8px">Parcelas (' + wiz.nParc + 'x &#x2022; ' + wiz.forma + ')</div>'
     + parcRows
     + '</div>'
     + '<div class="row" style="gap:8px;margin-top:10px">'
@@ -2180,9 +2187,10 @@ function renderW2() {
 function renderW3() {
   var PL = {mensal:'Mensal',quinzenal:'Quinzenal',semanal:'Semanal','30dias':'30 em 30'};
   var itensRows = wiz.itens.map(function(i) {
+    var q = i.qtd || 1;
     return '<div class="row" style="justify-content:space-between;font-size:13px;padding:2px 0">'
-      + '<span>' + escH(i.nome) + '</span>'
-      + '<span>' + _mpFmt(i.venda) + '</span></div>';
+      + '<span>' + escH(i.nome) + (q>1?' x'+q:'') + '</span>'
+      + '<span style="font-weight:600">' + _mpFmt((i.venda||0)*q) + '</span></div>';
   }).join('');
   var primLine = wiz.primeiraParcela > 0
     ? '<div class="row" style="justify-content:space-between;margin-top:4px">'
@@ -2200,7 +2208,7 @@ function renderW3() {
     + '<span>Total</span><span style="color:var(--org)">' + _mpFmt(_mpTotal()) + '</span></div>'
     + '<div class="row" style="justify-content:space-between;margin-bottom:4px">'
     + '<span style="color:var(--txt-lt)">Parcelas</span>'
-    + '<span>' + wiz.nParc + 'x â¢ ' + wiz.forma + ' â¢ ' + (PL[wiz.prazo] || wiz.prazo) + '</span></div>'
+    + '<span>' + wiz.nParc + 'x &#x2022; ' + wiz.forma + ' &#x2022; ' + (PL[wiz.prazo] || wiz.prazo) + '</span></div>'
     + '<div class="row" style="justify-content:space-between;margin-bottom:4px">'
     + '<span style="color:var(--txt-lt)">InÃ­cio</span>'
     + '<span>' + fmtDate(wiz.dataInicio) + '</span></div>'
@@ -2241,8 +2249,8 @@ async function finWiz() {
     var id    = genId();
     var uid   = currentUser ? currentUser.id : null;
     var num   = (vendas.length ? Math.max.apply(null, vendas.map(function(v){ return v.numero || 0; })) : 0) + 1;
-    var prodNome = wiz.itens.map(function(i){ return i.nome; }).join(', ');
-    var custoTotal = wiz.itens.reduce(function(s, i){ return s + (i.custo || 0); }, 0);
+    var prodNome = wiz.itens.map(function(i){ var q=i.qtd||1; return q>1?i.nome+' x'+q:i.nome; }).join(', ');
+    var custoTotal = wiz.itens.reduce(function(s, i){ return s + (i.custo || 0) * (i.qtd || 1); }, 0);
 
     // 1. Inserir venda
     var vendaObj = {
@@ -2267,8 +2275,8 @@ async function finWiz() {
         return {
           venda_id:    id,
           produto:     i.nome,
-          valor_custo: i.custo  || 0,
-          valor_venda: i.venda  || 0,
+          valor_custo: (i.custo || 0) * (i.qtd || 1),
+          valor_venda: (i.venda || 0) * (i.qtd || 1),
         };
       });
       await supa.from('venda_itens').insert(itensPayload);
