@@ -1704,7 +1704,7 @@ async function finWiz(){
 function selCliWiz(id){var c=clientes.find(function(x){return x.id===id;});if(c){wiz.cliente={id:c.id,nome:c.nome};closeModal('moCW');renderScreen();}}
 function modCliWiz(){
   var opts='';
-  clientes.forEach(function(c){
+  [...clientes].sort(function(a,b){return a.nome.localeCompare(b.nome);}).forEach(function(c){
     var tel=c.telefone?'<br><small style="color:var(--gray)">'+fmtPhone(c.telefone)+'</small>':'';
     opts+='<div class="litem cp" onclick="selCliWiz(\''+c.id+'\')">'+escH(c.nome)+tel+'</div>';
   });
@@ -2092,7 +2092,7 @@ function renderW1() {
 // ── Modal seleção múltipla de produtos ────────────────────
 function modProdWizMulti() {
   _mpSalvarInputs();
-  var rows = produtos.map(function(p) {
+  var rows = [...produtos].sort(function(a,b){return a.nome.localeCompare(b.nome);}).map(function(p) {
     var sel  = wiz.itens.some(function(i) { return i.id === p.id; });
     var item = wiz.itens.find(function(i) { return i.id === p.id; });
     var custo = item ? item.custo : (p.custo || 0);
