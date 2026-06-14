@@ -1955,6 +1955,349 @@ window.addEventListener('load',async()=>{
     renderLoginScreen();
   }
 });
+
+
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// MULTI-PRODUTO PATCH â AgiVendas
+// Injete este bloco imediatamente antes do Ãºltimo </script> do index.html
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
+// ââ Estender wiz com novos campos âââââââââââââââââââââââââââââââââ
+if (!wiz.itens) wiz.itens = [];
+if (wiz.primeiraParcela === undefined) wiz.primeiraParcela = 0;
+
+// ââ Helpers âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
+function _mpTotal() {
+  return wiz.itens.reduce(function(s, i) { return s + (i.venda || 0); }, 0);
+}
+
+function _mpSalvarInputs() {
+  wiz.itens = wiz.itens.map(function(item) {
+    var cEl = el('mpCusto_' + item.id);
+    var vEl = el('mpVenda_' + item.id);
+    return {
+      id:    item.id,
+      nome:  item.nome,
+      custo: cEl ? (parseFloat(cEl.value) || 0) : item.custo,
+      venda: vEl ? (parseFloat(vEl.value) || 0) : item.venda,
+    };
+  });
+  var ppEl = el('mpPrimParc');
+  if (ppEl) wiz.primeiraParcela = parseFloat(ppEl.value) || 0;
+  var npEl = el('wParc');
+  if (npEl) wiz.nParc = Math.max(1, parseInt(npEl.value) || 1);
+  var dtEl = el('wData');
+  if (dtEl) wiz.dataInicio = dtEl.value;
+}
+
+function _mpToggleItem(id) {
+  _mpSalvarInputs();
+  var idx = wiz.itens.findIndex(function(i) { return i.id === id; });
+  if (idx >= 0) {
+    wiz.itens.splice(idx, 1);
+  } else {
+    var prod = produtos.find(function(p) { return p.id === id; });
+    if (prod) {
+      wiz.itens.push({
+        id:    prod.id,
+        nome:  prod.nome,
+        custo: prod.custo || 0,
+        venda: prod.preco || prod.custo || 0,
+      });
+    }
+  }
+  renderScreen();
+}
+
+function _mpAvancar() {
+  _mpSalvarInputs();
+  if (!wiz.cliente)        { toast('Selecione um cliente');                    return; }
+  if (!wiz.itens.length)   { toast('Selecione ao menos um produto');           return; }
+  if (_mpTotal() <= 0)     { toast('O total da venda deve ser maior que zero'); return; }
+  wiz.step = 2;
+  renderScreen();
+}
+
+function _mpCalcParcelas() {
+  var total = _mpTotal();
+  var n     = wiz.nParc;
+  var pp    = wiz.primeiraParcela || 0;
+  var venc  = calcVenc();
+
+  if (pp > 0 && n > 1) {
+    var restante = total - pp;
+    var demais   = parseFloat((restante / (n - 1)).toFixed(2));
+    return venc.map(function(d, i) {
+      return { venc: d, valor: i === 0 ? pp : demais, num: i + 1 };
+    });
+  }
+  var vP = parseFloat((total / n).toFixed(2));
+  return venc.map(function(d, i) {
+    return { venc: d, valor: vP, num: i + 1 };
+  });
+}
+
+function _mpFmt(v) {
+  return 'R$ ' + (v || 0).toFixed(2).replace('.', ',');
+}
+
+// ââ Step 1: seleÃ§Ã£o de produtos + configuraÃ§Ã£o âââââââââââââââââââââ
+function renderW1() {
+  var FORMAS = ['Pix', 'Dinheiro', 'Cartao', 'Boleto', 'Fiado'];
+  var PRAZOS = [
+    {k:'mensal',l:'Mensal'}, {k:'quinzenal',l:'Quinzenal'},
+    {k:'semanal',l:'Semanal'}, {k:'30dias',l:'30 em 30'}
+  ];
+  var fC = FORMAS.map(function(f) {
+    return '<button class="chip ' + (wiz.forma===f?'on':'') + '" onclick="wiz.forma=\'' + f + '\';renderScreen()">' + f + '</button>';
+  }).join('');
+  var pC = PRAZOS.map(function(p) {
+    return '<button class="chip ' + (wiz.prazo===p.k?'on':'') + '" onclick="wiz.prazo=\'' + p.k + '\';renderScreen()">' + p.l + '</button>';
+  }).join('');
+
+  var prodRows = produtos.map(function(p) {
+    var sel  = wiz.itens.some(function(i) { return i.id === p.id; });
+    var item = wiz.itens.find(function(i) { return i.id === p.id; });
+    var custo = item ? item.custo : (p.custo || 0);
+    var venda = item ? item.venda : (p.preco || p.custo || 0);
+    var inputs = sel
+      ? '<div style="display:flex;gap:6px;align-items:center">'
+        + '<div style="text-align:center"><div style="font-size:10px;color:var(--txt-lt)">Custo</div>'
+        + '<input id="mpCusto_' + p.id + '" type="number" step="0.01" value="' + custo + '"'
+        + ' style="width:72px;padding:3px 5px;border:1px solid var(--bdr);border-radius:6px;font-size:12px;text-align:right"'
+        + ' oninput="_mpSalvarInputs()"></div>'
+        + '<div style="text-align:center"><div style="font-size:10px;color:var(--txt-lt)">Venda</div>'
+        + '<input id="mpVenda_' + p.id + '" type="number" step="0.01" value="' + venda + '"'
+        + ' style="width:72px;padding:3px 5px;border:1px solid var(--bdr);border-radius:6px;font-size:12px;text-align:right"'
+        + ' oninput="_mpSalvarInputs()"></div>'
+        + '</div>'
+      : '';
+    return '<div style="display:flex;align-items:center;padding:7px 0;border-bottom:1px solid var(--bdr);gap:8px">'
+      + '<label style="display:flex;align-items:center;flex:1;gap:8px;cursor:pointer">'
+      + '<input type="checkbox"' + (sel?' checked':'') + ' onchange="_mpToggleItem(\'' + p.id + '\')"'
+      + ' style="width:18px;height:18px;accent-color:var(--org);cursor:pointer">'
+      + '<span style="font-size:14px">' + escH(p.nome) + '</span></label>'
+      + inputs + '</div>';
+  }).join('');
+
+  var total = _mpTotal();
+  var totalLine = wiz.itens.length
+    ? '<div style="text-align:right;font-weight:700;color:var(--org);margin-top:6px">Total: ' + _mpFmt(total) + '</div>'
+    : '';
+
+  return '<div class="card">'
+    + '<div class="row" style="align-items:center;margin-bottom:10px">'
+    + '<b style="flex:1">Cliente</b>'
+    + '<button class="btn btn-sm btn-sec" onclick="modCliWiz()">'
+    + (wiz.cliente ? escH(wiz.cliente.nome) : 'Selecionar cliente...')
+    + '</button></div>'
+    + '<div style="font-weight:700;font-size:14px;margin-bottom:6px">Produtos <span style="font-size:11px;color:var(--txt-lt)">(selecione um ou mais)</span></div>'
+    + (produtos.length ? prodRows : '<div style="color:var(--txt-lt);text-align:center;padding:14px">Nenhum produto cadastrado</div>')
+    + totalLine
+    + '</div>'
+    + '<div class="card" style="margin-top:8px">'
+    + '<div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--txt-lt)">PAGAMENTO</div>'
+    + '<div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px">' + fC + '</div>'
+    + '<div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px">' + pC + '</div>'
+    + '<div class="row" style="gap:10px;flex-wrap:wrap;margin-bottom:4px">'
+    + '<div style="flex:1;min-width:80px"><label style="font-size:12px;color:var(--txt-lt)">NÂº Parcelas</label>'
+    + '<input id="wParc" type="number" min="1" max="360" value="' + wiz.nParc + '"'
+    + ' style="width:100%;padding:6px;border:1px solid var(--bdr);border-radius:8px;font-size:15px"'
+    + ' onchange="_mpSalvarInputs()"></div>'
+    + '<div style="flex:1;min-width:80px"><label style="font-size:12px;color:var(--txt-lt)">1Âª Parcela (R$)</label>'
+    + '<input id="mpPrimParc" type="number" min="0" step="0.01" value="' + (wiz.primeiraParcela || 0) + '"'
+    + ' style="width:100%;padding:6px;border:1px solid var(--bdr);border-radius:8px;font-size:15px"'
+    + ' placeholder="0 = igual" onchange="_mpSalvarInputs()"></div>'
+    + '<div style="flex:1;min-width:100px"><label style="font-size:12px;color:var(--txt-lt)">Data inÃ­cio</label>'
+    + '<input id="wData" type="date" value="' + wiz.dataInicio + '"'
+    + ' style="width:100%;padding:6px;border:1px solid var(--bdr);border-radius:8px;font-size:15px"'
+    + ' onchange="_mpSalvarInputs()"></div>'
+    + '</div></div>'
+    + '<div class="row" style="gap:8px;margin-top:10px">'
+    + '<button class="btn btn-sec" onclick="goBack()">&#8592; Sair</button>'
+    + '<button class="btn btn-ok" style="flex:2" onclick="_mpAvancar()">Continuar &#8594;</button>'
+    + '</div>';
+}
+
+// ââ Step 2: preview das parcelas ââââââââââââââââââââââââââââââââââ
+function renderW2() {
+  var parcRows = _mpCalcParcelas().map(function(p) {
+    return '<div class="prow">'
+      + '<div class="pnum">' + p.num + '</div>'
+      + '<div class="pinfo"><div class="pdate">' + fmtDate(p.venc) + '</div>'
+      + '<div class="ppay">' + wiz.forma + '</div></div>'
+      + '<div class="pval">' + _mpFmt(p.valor) + '</div></div>';
+  }).join('');
+
+  var itensRows = wiz.itens.map(function(i) {
+    return '<div class="row" style="justify-content:space-between;padding:3px 0;font-size:13px">'
+      + '<span>' + escH(i.nome) + '</span>'
+      + '<span style="font-weight:600">' + _mpFmt(i.venda) + '</span></div>';
+  }).join('');
+
+  return '<div class="card">'
+    + '<div style="font-size:15px;font-weight:700;margin-bottom:8px">Itens da venda</div>'
+    + itensRows
+    + '<div class="row" style="justify-content:space-between;margin-top:8px;padding-top:6px;border-top:1px solid var(--bdr);font-weight:700">'
+    + '<span>Total</span><span style="color:var(--org)">' + _mpFmt(_mpTotal()) + '</span></div>'
+    + '</div>'
+    + '<div class="card" style="margin-top:10px">'
+    + '<div style="font-size:15px;font-weight:700;margin-bottom:8px">Parcelas (' + wiz.nParc + 'x â¢ ' + wiz.forma + ')</div>'
+    + parcRows
+    + '</div>'
+    + '<div class="row" style="gap:8px;margin-top:10px">'
+    + '<button class="btn btn-sec" onclick="wiz.step=1;renderScreen()">&#8592; Voltar</button>'
+    + '<button class="btn btn-ok" style="flex:2" onclick="wiz.step=3;renderScreen()">Confirmar &#8594;</button>'
+    + '</div>';
+}
+
+// ââ Step 3: resumo final + salvar âââââââââââââââââââââââââââââââââ
+function renderW3() {
+  var PL = {mensal:'Mensal',quinzenal:'Quinzenal',semanal:'Semanal','30dias':'30 em 30'};
+  var itensRows = wiz.itens.map(function(i) {
+    return '<div class="row" style="justify-content:space-between;font-size:13px;padding:2px 0">'
+      + '<span>' + escH(i.nome) + '</span>'
+      + '<span>' + _mpFmt(i.venda) + '</span></div>';
+  }).join('');
+  var primLine = wiz.primeiraParcela > 0
+    ? '<div class="row" style="justify-content:space-between;margin-top:4px">'
+      + '<span style="color:var(--txt-lt)">1Âª parcela</span>'
+      + '<span>' + _mpFmt(wiz.primeiraParcela) + '</span></div>'
+    : '';
+
+  return '<div class="card">'
+    + '<div style="font-size:17px;font-weight:700;margin-bottom:12px">&#x2713; Confirmar venda</div>'
+    + '<div class="row" style="justify-content:space-between;margin-bottom:6px">'
+    + '<span style="color:var(--txt-lt)">Cliente</span>'
+    + '<span style="font-weight:600">' + (wiz.cliente ? escH(wiz.cliente.nome) : 'â') + '</span></div>'
+    + '<div style="margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--bdr)">' + itensRows + '</div>'
+    + '<div class="row" style="justify-content:space-between;margin-bottom:4px;font-weight:700">'
+    + '<span>Total</span><span style="color:var(--org)">' + _mpFmt(_mpTotal()) + '</span></div>'
+    + '<div class="row" style="justify-content:space-between;margin-bottom:4px">'
+    + '<span style="color:var(--txt-lt)">Parcelas</span>'
+    + '<span>' + wiz.nParc + 'x â¢ ' + wiz.forma + ' â¢ ' + (PL[wiz.prazo] || wiz.prazo) + '</span></div>'
+    + '<div class="row" style="justify-content:space-between;margin-bottom:4px">'
+    + '<span style="color:var(--txt-lt)">InÃ­cio</span>'
+    + '<span>' + fmtDate(wiz.dataInicio) + '</span></div>'
+    + primLine
+    + '</div>'
+    + '<div class="row" style="gap:8px;margin-top:10px">'
+    + '<button class="btn btn-sec" onclick="wiz.step=2;renderScreen()">&#8592; Voltar</button>'
+    + '<button class="btn btn-ok" style="flex:2" id="btnFin" onclick="finWiz()">&#x2713; Finalizar</button>'
+    + '</div>';
+}
+
+// ââ Override finWiz: salvar venda multi-produto âââââââââââââââââââ
+async function finWiz() {
+  var btn = el('btnFin');
+  if (btn) btn.disabled = true;
+
+  // Compatibilidade: ediÃ§Ã£o de venda antiga (produto Ãºnico)
+  if (wiz.editandoId) {
+    var t = (parseFloat(wiz.preco) || 0) * wiz.qtd;
+    await salvarEdicaoVenda(t, btn);
+    return;
+  }
+
+  // Compatibilidade: se por algum motivo itens estÃ¡ vazio mas wiz.produto existe
+  if (!wiz.itens.length && wiz.produto) {
+    var t = (parseFloat(wiz.preco) || 0) * wiz.qtd;
+    wiz.itens = [{ id: wiz.produto.id || null, nome: wiz.produto.nome, custo: wiz.produto.custo || 0, venda: t }];
+    wiz.primeiraParcela = 0;
+  }
+
+  if (!wiz.cliente)      { toast('Selecione um cliente');      if (btn) btn.disabled = false; return; }
+  if (!wiz.itens.length) { toast('Selecione ao menos um produto'); if (btn) btn.disabled = false; return; }
+
+  var total = _mpTotal();
+  if (total <= 0) { toast('Total invÃ¡lido'); if (btn) btn.disabled = false; return; }
+
+  try {
+    var id    = genId();
+    var uid   = currentUser ? currentUser.id : null;
+    var num   = (vendas.length ? Math.max.apply(null, vendas.map(function(v){ return v.numero || 0; })) : 0) + 1;
+    var prodNome = wiz.itens.map(function(i){ return i.nome; }).join(', ');
+    var custoTotal = wiz.itens.reduce(function(s, i){ return s + (i.custo || 0); }, 0);
+
+    // 1. Inserir venda
+    var vendaObj = {
+      id:              id,
+      numero:          num,
+      clienteid:       wiz.cliente.id,
+      produto:         prodNome,
+      preco:           total,
+      qtd:             1,
+      total:           total,
+      custo:           custoTotal,
+      data:            todayStr(),
+      primeira_parcela: wiz.primeiraParcela || 0,
+    };
+    await addVenda(vendaObj); // addVenda adiciona user_id automaticamente
+
+    // 2. Inserir venda_itens (tolera erro se a migraÃ§Ã£o SQL ainda nÃ£o foi rodada)
+    try {
+      var itensPayload = wiz.itens.map(function(i) {
+        return {
+          venda_id:    id,
+          produto:     i.nome,
+          valor_custo: i.custo  || 0,
+          valor_venda: i.venda  || 0,
+        };
+      });
+      await supa.from('venda_itens').insert(itensPayload);
+    } catch(e) {
+      console.warn('[multi-produto] venda_itens insert ignorado (execute migration.sql):', e);
+    }
+
+    // 3. Inserir parcelas com lÃ³gica de primeira parcela
+    var parcCalc = _mpCalcParcelas();
+    for (var i = 0; i < parcCalc.length; i++) {
+      var p = parcCalc[i];
+      var vencStr = typeof p.venc === 'string' ? p.venc : (p.venc instanceof Date ? p.venc.toISOString().slice(0,10) : String(p.venc));
+      await addParcela({
+        id:            genId(),
+        vendaid:       id,
+        numero:        p.num,
+        vencimento:    vencStr,
+        pagamento:     wiz.forma,
+        valor:         p.valor,
+        pago:          false,
+        datapagamento: null,
+      });
+    }
+
+    // 4. Reset e navegar
+    wiz = { step:1, cliente:null, produto:null, preco:'', qtd:1, forma:'Pix',
+            nParc:1, dataInicio:todayStr(), prazo:'mensal', editandoId:null,
+            itens:[], primeiraParcela:0 };
+    param = id;
+    nav('venda-detalhe', id);
+    toast('Venda criada!');
+
+  } catch(err) {
+    console.error('[finWiz multi-produto]', err);
+    toast('Erro ao salvar: ' + ((err && err.message) || JSON.stringify(err)));
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ââ FunÃ§Ã£o de mensagem multi-produto (para automaÃ§Ãµes) ââââââââââââ
+// Retorna: 'creditos' | 'ibo' | 'generica' | null (usa produto Ãºnico padrÃ£o)
+function _mpTipoMensagem(itens_lista) {
+  if (!itens_lista || !itens_lista.length) return null;
+  var nomes = itens_lista.map(function(i){ return (i.nome||i.produto||'').toLowerCase(); });
+  var temCredito = nomes.some(function(n){ return n.indexOf('crÃ©d') >= 0 || n.indexOf('cred') >= 0; });
+  var temIbo     = nomes.some(function(n){ return n.indexOf('ibo') >= 0; });
+  if (temCredito) return 'creditos';
+  if (temIbo && nomes.length === 1) return 'ibo';
+  return 'generica';
+}
+
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// FIM DO MULTI-PRODUTO PATCH
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
 </script>
 </body>
 </html>
