@@ -2044,7 +2044,7 @@ function _mpFmt(v) {
   return 'R$ ' + (v || 0).toFixed(2).replace('.', ',');
 }
 
-// ââ Step 1: seleÃ§Ã£o de produtos + configuraÃ§Ã£o âââââââââââââââââââââ
+// ── Step 1: cliente + produto + pagamento ────────────────────────
 function renderW1() {
   if (!wiz.itens) wiz.itens = [];
   if (wiz.primeiraParcela === undefined) wiz.primeiraParcela = 0;
@@ -2059,72 +2059,92 @@ function renderW1() {
   var pC = PRAZOS.map(function(p) {
     return '<button class="chip ' + (wiz.prazo===p.k?'on':'') + '" onclick="wiz.prazo=\'' + p.k + '\';renderScreen()">' + p.l + '</button>';
   }).join('');
+  var tit = wiz.editandoId ? '<div style="text-align:center;font-weight:700;color:var(--org);font-size:13px;margin-bottom:4px">&#x270E; Editando venda</div>' : '';
+  var prodLabel = wiz.itens.length
+    ? wiz.itens.map(function(i){ return escH(i.nome); }).join(', ') + ' — ' + _mpFmt(_mpTotal())
+    : 'Selecionar produto...';
+  return tit + '<div class="card">'
+    + '<div style="font-size:17px;font-weight:700;margin-bottom:18px">&#x1F464; Cliente e Produto</div>'
+    + '<div class="fg"><label class="flabel">Cliente</label>'
+    + '<button class="finput" style="text-align:left;cursor:pointer;display:block;width:100%" onclick="modCliWiz()">'
+    + (wiz.cliente ? escH(wiz.cliente.nome) : 'Selecionar cliente...') + '</button></div>'
+    + '<div class="fg"><label class="flabel">Produto / Serviço</label>'
+    + '<button class="finput" style="text-align:left;cursor:pointer;display:block;width:100%" onclick="modProdWizMulti()">'
+    + prodLabel + '</button></div>'
+    + '<div class="fg"><label class="flabel">Pagamento</label>'
+    + '<div class="chips">' + fC + '</div></div>'
+    + '<div style="display:flex;gap:8px">'
+    + '<div class="fg" style="flex:1"><label class="flabel">Parcelas</label>'
+    + '<input class="finput" id="wParc" type="number" value="' + wiz.nParc + '" min="1" step="1" onchange="_mpSalvarInputs()"></div>'
+    + '<div class="fg" style="flex:1"><label class="flabel">Entrada (R$)</label>'
+    + '<input class="finput" id="mpPrimParc" type="number" min="0" step="0.01" value="' + (wiz.primeiraParcela||0) + '" placeholder="0 = igual" onchange="_mpSalvarInputs()"></div>'
+    + '<div class="fg" style="flex:1.5"><label class="flabel">Data 1ª Parcela</label>'
+    + '<input class="finput" id="wData" type="date" value="' + wiz.dataInicio + '" onchange="_mpSalvarInputs()"></div>'
+    + '</div>'
+    + '<div class="fg"><label class="flabel">Prazo</label>'
+    + '<div class="chips">' + pC + '</div></div>'
+    + '<button class="btn btn-pri" onclick="_mpAvancar()">Ver Calendário &#x2192;</button>'
+    + '</div>';
+}
 
-  var prodRows = produtos.map(function(p) {
+// ── Modal seleção múltipla de produtos ────────────────────
+function modProdWizMulti() {
+  _mpSalvarInputs();
+  var rows = produtos.map(function(p) {
     var sel  = wiz.itens.some(function(i) { return i.id === p.id; });
     var item = wiz.itens.find(function(i) { return i.id === p.id; });
     var custo = item ? item.custo : (p.custo || 0);
     var venda = item ? item.venda : (p.preco || p.custo || 0);
-    var inputs = sel
-      ? '<div style="display:flex;gap:6px;align-items:center">'
-        + '<div style="text-align:center"><div style="font-size:10px;color:var(--txt-lt)">Custo</div>'
-        + '<input id="mpCusto_' + p.id + '" type="number" step="0.01" value="' + custo + '"'
-        + ' style="width:72px;padding:3px 5px;border:1px solid var(--bdr);border-radius:6px;font-size:12px;text-align:right"'
-        + ' oninput="_mpSalvarInputs()"></div>'
-        + '<div style="text-align:center"><div style="font-size:10px;color:var(--txt-lt)">Venda</div>'
-        + '<input id="mpVenda_' + p.id + '" type="number" step="0.01" value="' + venda + '"'
-        + ' style="width:72px;padding:3px 5px;border:1px solid var(--bdr);border-radius:6px;font-size:12px;text-align:right"'
-        + ' oninput="_mpSalvarInputs()"></div>'
-        + '</div>'
-      : '';
-    return '<div style="display:flex;align-items:center;padding:7px 0;border-bottom:1px solid var(--bdr);gap:8px">'
-      + '<label style="display:flex;align-items:center;flex:1;gap:8px;cursor:pointer">'
-      + '<input type="checkbox"' + (sel?' checked':'') + ' onchange="_mpToggleItem(\'' + p.id + '\')"'
-      + ' style="width:18px;height:18px;accent-color:var(--org);cursor:pointer">'
-      + '<span style="font-size:14px">' + escH(p.nome) + '</span></label>'
-      + inputs + '</div>';
+    return '<div id="mpRow_' + p.id + '" style="border-bottom:1px solid var(--bdr)">'
+      + '<label style="display:flex;align-items:center;gap:10px;padding:10px 0;cursor:pointer">'
+      + '<input type="checkbox" id="mpM_chk_' + p.id + '"' + (sel ? ' checked' : '')
+      + ' style="width:18px;height:18px;accent-color:var(--org);flex-shrink:0"'
+      + ' onchange="_mpRowToggle(\'' + p.id + '\')">'
+      + '<span style="font-size:15px;font-weight:500;flex:1">' + escH(p.nome) + '</span></label>'
+      + '<div id="mpInputs_' + p.id + '" style="display:' + (sel ? 'flex' : 'none') + ';gap:8px;padding-bottom:10px">'
+      + '<div style="flex:1"><label style="font-size:11px;color:var(--txt-lt)">Custo</label>'
+      + '<input id="mpM_custo_' + p.id + '" type="number" step="0.01" value="' + custo + '" class="finput" style="font-size:13px"></div>'
+      + '<div style="flex:1"><label style="font-size:11px;color:var(--txt-lt)">Venda</label>'
+      + '<input id="mpM_venda_' + p.id + '" type="number" step="0.01" value="' + venda + '" class="finput" style="font-size:13px"></div>'
+      + '</div></div>';
   }).join('');
-
-  var total = _mpTotal();
-  var totalLine = wiz.itens.length
-    ? '<div style="text-align:right;font-weight:700;color:var(--org);margin-top:6px">Total: ' + _mpFmt(total) + '</div>'
-    : '';
-
-  return '<div class="card">'
-    + '<div class="row" style="align-items:center;margin-bottom:10px">'
-    + '<b style="flex:1">Cliente</b>'
-    + '<button class="btn btn-sm btn-sec" onclick="modCliWiz()">'
-    + (wiz.cliente ? escH(wiz.cliente.nome) : 'Selecionar cliente...')
-    + '</button></div>'
-    + '<div style="font-weight:700;font-size:14px;margin-bottom:6px">Produtos <span style="font-size:11px;color:var(--txt-lt)">(selecione um ou mais)</span></div>'
-    + (produtos.length ? prodRows : '<div style="color:var(--txt-lt);text-align:center;padding:14px">Nenhum produto cadastrado</div>')
-    + totalLine
-    + '</div>'
-    + '<div class="card" style="margin-top:8px">'
-    + '<div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--txt-lt)">PAGAMENTO</div>'
-    + '<div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px">' + fC + '</div>'
-    + '<div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px">' + pC + '</div>'
-    + '<div class="row" style="gap:10px;flex-wrap:wrap;margin-bottom:4px">'
-    + '<div style="flex:1;min-width:80px"><label style="font-size:12px;color:var(--txt-lt)">NÂº Parcelas</label>'
-    + '<input id="wParc" type="number" min="1" max="360" value="' + wiz.nParc + '"'
-    + ' style="width:100%;padding:6px;border:1px solid var(--bdr);border-radius:8px;font-size:15px"'
-    + ' onchange="_mpSalvarInputs()"></div>'
-    + '<div style="flex:1;min-width:80px"><label style="font-size:12px;color:var(--txt-lt)">1Âª Parcela (R$)</label>'
-    + '<input id="mpPrimParc" type="number" min="0" step="0.01" value="' + (wiz.primeiraParcela || 0) + '"'
-    + ' style="width:100%;padding:6px;border:1px solid var(--bdr);border-radius:8px;font-size:15px"'
-    + ' placeholder="0 = igual" onchange="_mpSalvarInputs()"></div>'
-    + '<div style="flex:1;min-width:100px"><label style="font-size:12px;color:var(--txt-lt)">Data inÃ­cio</label>'
-    + '<input id="wData" type="date" value="' + wiz.dataInicio + '"'
-    + ' style="width:100%;padding:6px;border:1px solid var(--bdr);border-radius:8px;font-size:15px"'
-    + ' onchange="_mpSalvarInputs()"></div>'
-    + '</div></div>'
-    + '<div class="row" style="gap:8px;margin-top:10px">'
-    + '<button class="btn btn-sec" onclick="goBack()">&#8592; Sair</button>'
-    + '<button class="btn btn-ok" style="flex:2" onclick="_mpAvancar()">Continuar &#8594;</button>'
-    + '</div>';
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="moverlay" id="moPMW">'
+    + '<div class="modal"><div style="font-weight:700;font-size:16px;margin-bottom:14px">Produtos</div>'
+    + '<div style="max-height:55vh;overflow-y:auto">'
+    + (produtos.length ? rows : '<div style="color:var(--txt-lt);text-align:center;padding:20px">Nenhum produto cadastrado</div>')
+    + '</div><div style="display:flex;gap:8px;margin-top:16px">'
+    + '<button class="btn btn-sec" onclick="closeModal(\'moPMW\')">Cancelar</button>'
+    + '<button class="btn btn-pri" style="flex:2" onclick="_mpModalConfirm()">Confirmar</button>'
+    + '</div></div></div>');
 }
 
-// ââ Step 2: preview das parcelas ââââââââââââââââââââââââââââââââââ
+function _mpRowToggle(id) {
+  var chk    = document.getElementById('mpM_chk_'    + id);
+  var inputs = document.getElementById('mpInputs_' + id);
+  if (inputs) inputs.style.display = (chk && chk.checked) ? 'flex' : 'none';
+}
+
+function _mpModalConfirm() {
+  var newItens = [];
+  produtos.forEach(function(p) {
+    var chk = document.getElementById('mpM_chk_' + p.id);
+    if (chk && chk.checked) {
+      var custoEl = document.getElementById('mpM_custo_' + p.id);
+      var vendaEl = document.getElementById('mpM_venda_' + p.id);
+      newItens.push({
+        id:    p.id,
+        nome:  p.nome,
+        custo: custoEl ? (parseFloat(custoEl.value) || 0) : (p.custo || 0),
+        venda: vendaEl ? (parseFloat(vendaEl.value) || 0) : (p.preco || 0),
+      });
+    }
+  });
+  wiz.itens = newItens;
+  closeModal('moPMW');
+  renderScreen();
+}
+
 function renderW2() {
   var parcRows = _mpCalcParcelas().map(function(p) {
     return '<div class="prow">'
