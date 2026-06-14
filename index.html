@@ -2231,9 +2231,11 @@ async function finWiz() {
       total:           total,
       custo:           custoTotal,
       data:            todayStr(),
-      primeira_parcela: wiz.primeiraParcela || 0,
     };
     await addVenda(vendaObj); // addVenda adiciona user_id automaticamente
+    if (wiz.primeiraParcela > 0) {
+      try { await supa.from('vendas').update({primeira_parcela: wiz.primeiraParcela}).eq('id', id); } catch(epp) { console.warn('[mp] primeira_parcela ignorada - rode migration.sql:', epp); }
+    }
 
     // 2. Inserir venda_itens (tolera erro se a migraÃ§Ã£o SQL ainda nÃ£o foi rodada)
     try {
