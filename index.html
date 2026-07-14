@@ -2073,7 +2073,7 @@ function renderW1() {
   }).join('');
   var tit = wiz.editandoId ? '<div style="text-align:center;font-weight:700;color:var(--org);font-size:13px;margin-bottom:4px">&#x270E; Editando venda</div>' : '';
   var prodLabel = wiz.itens.length
-    ? wiz.itens.map(function(i){ return escH(i.nome) + ((i.qtd||1)>1?' x'+(i.qtd||1):''); }).join(', ') + ' — ' + _mpFmt(_mpTotal())
+    ? wiz.itens.map(function(i){ return escH(i.nome); }).join(', ') + ' — ' + _mpFmt(_mpTotal())
     : 'Selecionar produto...';
   return tit + '<div class="card">'
     + '<div style="font-size:17px;font-weight:700;margin-bottom:18px">&#x1F464; Cliente e Produto</div>'
@@ -2261,7 +2261,7 @@ async function finWiz() {
     var id    = genId();
     var uid   = currentUser ? currentUser.id : null;
     var num   = (vendas.length ? Math.max.apply(null, vendas.map(function(v){ return v.numero || 0; })) : 0) + 1;
-    var prodNome = wiz.itens.map(function(i){ var q=i.qtd||1; return q>1?i.nome+' x'+q:i.nome; }).join(', ');
+    var prodNome = wiz.itens.map(function(i){ return i.nome; }).join(', '); var _um=wiz.itens.length===1; var _vQtd=_um?(wiz.itens[0].qtd||1):1; var _vPreco=_um?(wiz.itens[0].venda||0):total;
     var custoTotal = wiz.itens.reduce(function(s, i){ return s + (i.custo || 0) * (i.qtd || 1); }, 0);
 
     // 1. Inserir venda
@@ -2270,8 +2270,8 @@ async function finWiz() {
       numero:          num,
       clienteid:       wiz.cliente.id,
       produto:         prodNome,
-      preco:           total,
-      qtd:             1,
+      preco:           _vPreco,
+      qtd:             _vQtd,
       total:           total,
       custo:           custoTotal,
       data:            todayStr(),
