@@ -684,7 +684,7 @@ function openFinParcela(pid){
 function ehCreditos(_n){return _n==='Créditos'||/^Créditos x\d/.test(_n||'');}
 async function marcarPago(pid){var parc=(typeof parcelas!=='undefined'?parcelas:[]).find(function(x){return x.id==pid;});var venda=parc?((typeof vendas!=='undefined'?vendas:[]).find(function(x){return x.id==parc.vendaid;})):null;var cli=venda?((typeof clientes!=='undefined'?clientes:[]).find(function(x){return x.id==venda.clienteid;})):null;
 if(!venda||!ehCreditos(venda.produto)){confirmarMarcarPago(pid,false);return;}var valor=parc?parc.valor:0;var nome=cli?cli.nome:'';var el=document.createElement('div');el.id='modalAtivarGestor';el.className='moverlay';el.innerHTML='<div class="modal" style="padding-bottom:30px"><div style="text-align:center;margin-bottom:18px"><div style="font-size:42px">&#x2705;</div><div class="mtit" style="margin-bottom:6px">Pagamento confirmado!</div>'+(nome?'<div style="font-size:14px;color:var(--gray)">R$ '+valor.toFixed(2)+' - '+nome+'</div>':'')+'</div><div style="background:var(--org-lt);border-radius:12px;padding:14px;margin-bottom:18px;text-align:center"><div style="font-size:14px;font-weight:600;color:var(--org)">Ativar no gestor.rs agora?</div><div style="font-size:12px;color:var(--gray);margin-top:4px">O acesso sera renovado automaticamente</div></div><div class="btn-row"><button class="btn btn-sec" id="btnNaoAtivarGestor">Não agora</button><button class="btn btn-pri" id="btnSimAtivarGestor">Sim, ativar</button></div></div>';document.body.appendChild(el);el.querySelector('#btnNaoAtivarGestor').addEventListener('click',function(){confirmarMarcarPago(pid,false);});el.querySelector('#btnSimAtivarGestor').addEventListener('click',function(){confirmarMarcarPago(pid,true);});}
-async function confirmarMarcarPago(pid,ativar){var el=document.getElementById('modalAtivarGestor');if(el)el.remove();var extra=ativar?{}:{iptv_ativado:true};await updParcela(pid,Object.assign({pago:true,datapagamento:nowStr()},extra));updBadge();renderScreen();toast(ativar?'Salvo! Ativando em breve...':'Salvo!');}
+async function confirmarMarcarPago(pid,ativar){var el=document.getElementById('modalAtivarGestor');if(el)el.remove();var extra=ativar?{ativacao_modo:'sim'}:{ativacao_modo:'nao'};await updParcela(pid,Object.assign({pago:true,datapagamento:nowStr()},extra));updBadge();renderScreen();toast(ativar?'Salvo! Ativando em breve...':'Salvo!');}
 
 // ── CLIENTES ────────────────────────────────────────────
 function renderClientes(){
@@ -902,7 +902,7 @@ function desfazerParcela(pid,modalId){
   el.querySelector('#btnEstornarCancel').addEventListener('click',function(){el.remove();});
   el.querySelector('#btnEstornarOk').addEventListener('click',function(){
     el.remove();
-    updParcela(pid,{pago:false,datapagamento:null,iptv_ativado:false}).then(function(){
+    updParcela(pid,{pago:false,datapagamento:null,rastreadorjulius_ativado:false,ativacao_modo:null}).then(function(){
       updBadge();renderScreen();
       var m=document.getElementById(modalId);if(m)m.remove();
       toast('Recebimento estornado!');
