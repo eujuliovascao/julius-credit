@@ -1738,12 +1738,12 @@ function modNCliWiz(){
   html+='<div class="mtit">Novo Cliente</div>';
   html+='<div class="fg"><label class="flabel">Nome *</label><input class="finput" id="wcNome"></div>';
   html+='<div class="fg"><label class="flabel">WhatsApp</label><input class="finput" id="wcTel" type="tel" placeholder="(19) 99999-9999" oninput="fmtWhats(this)"></div>';
-  html+='<button class="btn btn-pri" onclick="savWCli()">Salvar</button>';
+  html+='<div class="fg"><label class="flabel">Logins (rastreador)</label><input class="finput" id="wcLogins" placeholder="Ex: durvalsilva, durvalsilva2"></div>';html+='<button class="btn btn-pri" onclick="savWCli()">Salvar</button>';
   html+='</div></div>';
   document.body.insertAdjacentHTML('beforeend',html);
 }
 
-async function savWCli(){const n=el('wcNome')?.value?.trim();if(!n){alert('Informe o nome');return;}const c=await addCliente({nome:n,telefone:savePhone(el('wcTel')?.value||'')});wiz.cliente=c;closeModal('moCWN');renderScreen();}
+async function savWCli(){const n=el('wcNome')?.value?.trim();if(!n){alert('Informe o nome');return;}const c=await addCliente({nome:n,telefone:savePhone(el('wcTel')?.value||''),login_rastreadorjulius:(el('wcLogins')?.value||'').trim()});wiz.cliente=c;closeModal('moCWN');renderScreen();}
 function selProdWiz(id){var p=produtos.find(function(x){return x.id===id;});if(p){wiz.produto={id:p.id,nome:p.nome,custo:p.custo||0};wiz.preco=String(p.preco);closeModal('moPW');renderScreen();}}
 function modProdWiz(){
   var opts='';
