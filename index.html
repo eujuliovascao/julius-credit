@@ -1269,12 +1269,12 @@ async function salvarParcelas(){
     document.body.appendChild(el);
     el.querySelector('#btnNaoGS').addEventListener('click',function(){
       el.remove();
-      novoPago.forEach(function(id){updParcela(id,{iptv_ativado:true});});
+      novoPago.forEach(function(id){updParcela(id,{ativacao_modo:'nao'});});
       showReciboModal(param);
     });
     el.querySelector('#btnSimGS').addEventListener('click',function(){
       el.remove();
-      novoPago.forEach(function(id){updParcela(id,{iptv_ativado:false});});
+      novoPago.forEach(function(id){updParcela(id,{ativacao_modo:'sim'});});
       showReciboModal(param);
     });
   } else {
